@@ -1,0 +1,45 @@
+query ListAllProjects @auth(level: PUBLIC, insecureReason: "This operation is safe to expose to the public as it only lists projects without sensitive user data.") {
+  projects {
+    id
+    name
+    description
+    startDate
+    endDate
+    status
+  }
+}
+
+mutation CreateNewTask($projectId: UUID!, $name: String!, $dueDate: Date!, $status: String!, $description: String, $assigneeId: UUID) @auth(level: USER) {
+  task_insert(data: {
+    projectId: $projectId,
+    name: $name,
+    dueDate: $dueDate,
+    status: $status,
+    description: $description,
+    assigneeId: $assigneeId,
+    createdAt_expr: "request.time"
+  }) {
+    id
+  }
+}
+
+query GetMyDailyReports @auth(level: USER) {
+  dailyReports(where: {submitterId: {eq_expr: "auth.uid"}}) {
+    id
+    reportDate
+    workDescription
+    project {
+      name
+    }
+    approvalStatus
+  }
+}
+
+mutation UpdateIssueStatus($issueId: UUID!, $newStatus: String!) @auth(level: USER, insecureReason: "This operation is safe to expose to all logged in users as it only allows updating the status of an issue by ID.") {
+  issue_update(key: {id: $issueId}, data: {
+    status: $newStatus,
+    updatedAt_expr: "request.time"
+  }) {
+    id
+  }
+}

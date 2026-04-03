@@ -1,0 +1,65 @@
+// firestore.rules
+// Deploy with: firebase deploy --only firestore:rules
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper: check if user is authenticated
+    function isAuth() {
+      return request.auth != null;
+    }
+
+    // Helper: get user role from Firestore
+    function getRole() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role;
+    }
+
+    // Users collection
+    match /users/{userId} {
+      allow read:  if isAuth();
+      allow write: if isAuth() && request.auth.uid == userId;
+      allow create: if isAuth();
+    }
+
+    // Projects
+    match /projects/{projectId} {
+      allow read:   if isAuth();
+      allow create: if isAuth();
+      allow update: if isAuth();
+      allow delete: if isAuth();
+    }
+
+    // Tasks
+    match /tasks/{taskId} {
+      allow read:   if isAuth();
+      allow create: if isAuth();
+      allow update: if isAuth();
+      allow delete: if isAuth();
+    }
+
+    // Reports
+    match /reports/{reportId} {
+      allow read:   if isAuth();
+      allow create: if isAuth();
+      allow update: if isAuth();
+      allow delete: if isAuth();
+    }
+
+    // Issues
+    match /issues/{issueId} {
+      allow read:   if isAuth();
+      allow create: if isAuth();
+      allow update: if isAuth();
+      allow delete: if isAuth();
+    }
+
+    // Notifications
+    match /notifications/{notifId} {
+      allow read:   if isAuth() && resource.data.recipientUid == request.auth.uid;
+      allow create: if isAuth();
+      allow update: if isAuth() && resource.data.recipientUid == request.auth.uid;
+      allow delete: if isAuth() && resource.data.recipientUid == request.auth.uid;
+    }
+  }
+}

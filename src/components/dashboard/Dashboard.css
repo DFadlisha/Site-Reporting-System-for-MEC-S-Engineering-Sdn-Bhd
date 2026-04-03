@@ -1,0 +1,133 @@
+/* src/components/dashboard/Dashboard.css */
+.db-stats-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 16px;
+  margin-bottom: 20px;
+}
+@media (max-width: 1100px) { .db-stats-grid { grid-template-columns: repeat(2, 1fr); } }
+@media (max-width: 600px)  { .db-stats-grid { grid-template-columns: 1fr; } }
+
+.db-stat-card {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+.db-stat-icon {
+  width: 48px; height: 48px;
+  border-radius: var(--radius-md);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.db-stat-value {
+  font-family: var(--font-display);
+  font-size: 1.8rem;
+  font-weight: 800;
+  line-height: 1;
+}
+.db-stat-label {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-top: 4px;
+}
+
+.db-charts-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 16px;
+  margin-bottom: 20px;
+}
+@media (max-width: 900px) { .db-charts-grid { grid-template-columns: 1fr; } }
+
+.db-chart-card { }
+.db-chart-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 0.9rem;
+  margin-bottom: 16px;
+  color: var(--text-primary);
+}
+
+.db-pie-legend {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-top: 12px;
+}
+.db-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.82rem;
+}
+.db-legend-dot {
+  width: 10px; height: 10px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+.db-legend-val {
+  margin-left: auto;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+/* Projects list */
+.db-project-list { display: flex; flex-direction: column; gap: 12px; }
+.db-project-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 12px;
+  background: var(--bg-elevated);
+  border-radius: var(--radius-md);
+  transition: background 0.15s;
+}
+.db-project-row:hover { background: var(--bg-base); }
+.db-project-icon {
+  width: 36px; height: 36px;
+  background: var(--accent-dim);
+  color: var(--accent);
+  border-radius: var(--radius-sm);
+  display: flex; align-items: center; justify-content: center;
+  flex-shrink: 0;
+}
+.db-project-info { flex: 1; min-width: 0; }
+.db-project-name {
+  display: block;
+  font-weight: 600;
+  font-size: 0.875rem;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.db-project-loc {
+  display: block;
+  font-size: 0.775rem;
+  color: var(--text-secondary);
+}
+.db-project-progress {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 120px;
+}
+.db-progress-bar {
+  flex: 1;
+  height: 5px;
+  background: var(--bg-base);
+  border-radius: 99px;
+  overflow: hidden;
+}
+.db-progress-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 99px;
+  transition: width 0.4s ease;
+}
+.db-progress-pct {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  width: 32px;
+  text-align: right;
+}

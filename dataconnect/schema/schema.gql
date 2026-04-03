@@ -1,0 +1,68 @@
+type User @table {
+  displayName: String!
+  email: String!
+  role: String! # enum: SUPERVISOR, CONSULTANT
+  createdAt: Timestamp!
+  photoUrl: String
+}
+
+type Project @table {
+  name: String!
+  startDate: Date!
+  status: String! # enum: PLANNING, ACTIVE, COMPLETED, ON_HOLD
+  createdAt: Timestamp!
+  description: String
+  endDate: Date
+}
+
+type ProjectUser @table(key: ["user", "project"]) {
+  user: User!
+  project: Project!
+  role: String! # enum: SUPERVISOR, CONSULTANT, TEAM_MEMBER
+  createdAt: Timestamp!
+}
+
+type Task @table {
+  project: Project!
+  assignee: User
+  name: String!
+  status: String! # enum: TO_DO, IN_PROGRESS, COMPLETED
+  dueDate: Date!
+  createdAt: Timestamp!
+  description: String
+  completedAt: Timestamp
+}
+
+type DailyReport @table {
+  project: Project!
+  submitter: User!
+  reportDate: Date!
+  workDescription: String!
+  createdAt: Timestamp!
+  updatedAt: Timestamp!
+  photoUrls: [String]
+  approvedBy: User
+  approvalStatus: String # enum: PENDING, APPROVED, REVISION_NEEDED
+}
+
+type Issue @table {
+  project: Project!
+  reporter: User!
+  description: String!
+  severity: String! # enum: LOW, MEDIUM, HIGH
+  status: String! # enum: OPEN, IN_PROGRESS, RESOLVED, CLOSED
+  createdAt: Timestamp!
+  updatedAt: Timestamp!
+  resolution: String
+  photoUrls: [String]
+  assignedTo: User
+}
+
+type Notification @table {
+  recipient: User!
+  message: String!
+  type: String! # enum: TASK_UPDATE, NEW_ISSUE, REPORT_COMMENT, ISSUE_STATUS_CHANGE
+  isRead: Boolean!
+  createdAt: Timestamp!
+  linkToEntity: UUID
+}

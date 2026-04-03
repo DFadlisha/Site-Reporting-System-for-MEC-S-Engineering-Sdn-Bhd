@@ -1,0 +1,53 @@
+node.exe : (node:21624) 
+[DEP0040] 
+DeprecationWarning: The 
+`punycode` module is 
+deprecated. Please use a 
+userland alternative 
+instead.
+At C:\Users\User\AppData\Ro
+aming\npm\firebase.ps1:24 
+char:5
++     & "node$exe"  "$based
+ir/node_modules/firebase-to
+ols/lib/bin/fireb ...
++     ~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~~~
+    + CategoryInfo         
+     : NotSpecified: ((no  
+  de:21624) [D...native    
+ instead.:String) [], R    
+emoteException
+    + FullyQualifiedErrorI 
+   d : NativeCommandError
+ 
+(Use `node 
+--trace-deprecation ...` 
+to show where the warning 
+was created)
+
+[1m[37m===[39m Deploying to 'sprs-82929'...[22m
+
+[36m[1mi [22m[39m deploying [1mfunctions[22m
+[36m[1mi  functions:[22m[39m preparing codebase [1mdefault[22m for deployment
+[36m[1mi  functions:[22m[39m ensuring required API [1mcloudfunctions.googleapis.com[22m is enabled...
+[36m[1mi  functions:[22m[39m ensuring required API [1mcloudbuild.googleapis.com[22m is enabled...
+[36m[1mi  artifactregistry:[22m[39m ensuring required API [1martifactregistry.googleapis.com[22m is enabled...
+[36m[1mi  functions:[22m[39m Loading and analyzing source code for codebase default to determine what to deploy
+Serving at port 8851
+
+TypeError: functions.firestore.document is not a function
+    at Object.<anonymous> (C:\Users\User\Documents\SEM 8\PSM 2\CODE\sprs\functions\index.js:12:4)
+    at Module._compile (node:internal/modules/cjs/loader:1546:14)
+    at Object..js (node:internal/modules/cjs/loader:1689:10)
+    at Module.load (node:internal/modules/cjs/loader:1318:32)
+    at Function._load (node:internal/modules/cjs/loader:1128:12)
+    at TracingChannel.traceSync (node:diagnostics_channel:315:14)
+    at wrapModuleLoad (node:internal/modules/cjs/loader:218:24)
+    at Module.require (node:internal/modules/cjs/loader:1340:12)
+    at require (node:internal/modules/helpers:141:16)
+    at loadModule (C:\Users\User\Documents\SEM 8\PSM 2\CODE\sprs\functions\node_modules\firebase-functions\lib\runtime\loader.js:20:10)
+
+
+[1m[31mError:[39m[22m Functions codebase could not be analyzed successfully. It may have a syntax or runtime error

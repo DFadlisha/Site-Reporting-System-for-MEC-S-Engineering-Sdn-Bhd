@@ -1,0 +1,144 @@
+/* src/components/tasks/TasksPage.css */
+
+/* Project bar */
+.tk-projects-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.tk-projects-scroll {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  flex: 1;
+}
+.tk-proj-chip-wrap {
+  display: flex;
+  align-items: center;
+  position: relative;
+}
+.tk-proj-chip {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 99px;
+  border: 1px solid var(--border);
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  font-size: 0.82rem;
+  font-weight: 500;
+  transition: all 0.15s;
+  cursor: pointer;
+}
+.tk-proj-chip:hover { border-color: var(--border-strong); color: var(--text-primary); }
+.tk-proj-chip.active {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+.tk-proj-del {
+  position: absolute;
+  top: -5px; right: -5px;
+  width: 16px; height: 16px;
+  background: var(--danger);
+  color: #fff;
+  border-radius: 50%;
+  border: none;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 0.6rem;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+.tk-proj-chip-wrap:hover .tk-proj-del { opacity: 1; }
+
+/* Actions row */
+.tk-actions {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.tk-filter-tabs {
+  display: flex;
+  background: var(--bg-elevated);
+  border-radius: var(--radius-md);
+  padding: 3px;
+  gap: 2px;
+}
+.tk-filter-tab {
+  padding: 6px 12px;
+  border-radius: var(--radius-sm);
+  border: none;
+  background: none;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+  font-weight: 500;
+  transition: all 0.15s;
+  cursor: pointer;
+}
+.tk-filter-tab.active {
+  background: var(--bg-surface);
+  color: var(--text-primary);
+  font-weight: 600;
+  box-shadow: var(--shadow-sm);
+}
+
+/* Task grid */
+.tk-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.tk-card { display: flex; flex-direction: column; gap: 10px; }
+.tk-card-header { display: flex; gap: 8px; }
+.tk-card-title {
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.975rem;
+  line-height: 1.3;
+}
+.tk-card-desc {
+  font-size: 0.825rem;
+  color: var(--text-secondary);
+  line-height: 1.5;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.tk-card-meta {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  margin-top: 4px;
+}
+.tk-meta-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  color: var(--text-secondary);
+}
+.tk-card-actions {
+  display: flex;
+  gap: 8px;
+  margin-top: 4px;
+  padding-top: 10px;
+  border-top: 1px solid var(--border);
+}
+
+/* Empty */
+.tk-empty {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  padding: 60px 20px;
+  color: var(--text-muted);
+  font-size: 0.875rem;
+}
