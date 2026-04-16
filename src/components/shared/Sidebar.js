@@ -3,7 +3,7 @@ import React, { useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
 import {
   LayoutDashboard, ClipboardList, CheckSquare,
-  AlertTriangle, Bell, LogOut, Building2, ChevronRight
+  AlertTriangle, Bell, LogOut, Building2, ChevronRight, Users, Activity
 } from "lucide-react";
 import { logoutUser } from "../../firebase/services";
 import { useAuth } from "../../contexts/AuthContext";
@@ -82,6 +82,26 @@ export default function Sidebar() {
             {!collapsed && <span>{label}</span>}
           </NavLink>
         ))}
+        {profile?.role === "admin" ? (
+          <>
+            <NavLink
+              to="/users"
+              onClick={closeMobile}
+              className={({ isActive }) => `sidebar-link ${isActive ? "active" : ""}`}
+            >
+              <Users size={18} />
+              {!collapsed && <span>User Management</span>}
+            </NavLink>
+            <NavLink
+              to="/audit"
+              onClick={closeMobile}
+              className={({ isActive }) => `sidebar-link ${isActive ? "active" : ""}`}
+            >
+              <Activity size={18} />
+              {!collapsed && <span>Audit Logs</span>}
+            </NavLink>
+          </>
+        ) : null}
       </nav>
 
       {/* Logout */}

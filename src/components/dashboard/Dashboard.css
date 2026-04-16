@@ -38,8 +38,6 @@
   margin-bottom: 20px;
 }
 @media (max-width: 900px) { .db-charts-grid { grid-template-columns: 1fr; } }
-
-.db-chart-card { }
 .db-chart-title {
   display: flex;
   align-items: center;
@@ -131,3 +129,39 @@
   width: 32px;
   text-align: right;
 }
+
+.db-clickable-project {
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+.db-clickable-project:hover {
+  background: var(--bg-base);
+  transform: translateX(4px);
+}
+
+/* Print Styles for Master Export Modal */
+.printable-master-report, .printable-reports-export {
+  display: none;
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  
+  .printable-master-report, .printable-master-report *,
+  .printable-reports-export, .printable-reports-export * {
+    visibility: visible;
+  }
+  
+  .printable-master-report, .printable-reports-export {
+    display: block !important;
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    padding: 20px;
+    background: white;
+  }
+}
+

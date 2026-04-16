@@ -4,7 +4,7 @@ import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
 import { getStorage } from "firebase/storage";
 import { getAnalytics } from "firebase/analytics";
-import { getMessaging } from "firebase/messaging";
+import { getMessaging, isSupported } from "firebase/messaging";
 
 const firebaseConfig = {
   apiKey: "AIzaSyCy6ear6KhfpeP-EZkgfTD0acmV2xYgpLs",
@@ -25,11 +25,20 @@ export const analytics = getAnalytics(app);
 
 // Messaging only works in supported browsers (requires HTTPS + service worker)
 let messaging = null;
-try {
-  messaging = getMessaging(app);
-} catch (e) {
-  console.warn("Firebase Messaging not supported in this environment.");
-}
+isSupported().then((supported) => {
+  if (supported) {
+    try {
+      messaging = getMessaging(app);
+    } catch (e) {
+      console.warn("Firebase Messaging initialization failed:", e);
+    }
+  } else {
+    console.warn("Firebase Messaging not supported in this environment. (Often caused by using HTTP instead of secure HTTPS/Localhost)");
+  }
+}).catch((err) => {
+  console.warn("Firebase Messaging support check failed:", err);
+});
+
 export { messaging };
 
 export default app;

@@ -34,7 +34,6 @@ export default function Topbar({ title }) {
         >
           <Menu size={18} />
         </button>
-        <h1 className="topbar-title">{title}</h1>
       </div>
       <div className="topbar-right">
         <button className="topbar-icon-btn" onClick={toggleTheme} title="Toggle Theme">

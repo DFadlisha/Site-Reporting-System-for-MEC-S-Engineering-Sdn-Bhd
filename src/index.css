@@ -101,14 +101,15 @@ input, textarea, select { font-family: inherit; }
 .gap-3 { gap: 12px; }
 .gap-4 { gap: 16px; }
 
-.text-accent  { color: var(--accent); }
-.text-success { color: var(--success); }
-.text-danger  { color: var(--danger); }
-.text-muted   { color: var(--text-secondary); }
+.text-accent  { color: var(--accent) !important; }
+.text-success { color: var(--success) !important; }
+.text-danger  { color: var(--danger) !important; }
+.text-muted   { color: var(--text-secondary) !important; }
 
 /* ─── Shared card ───────────────────────────────── */
 .card {
   background: var(--bg-card);
+  color: var(--text-primary);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   padding: 20px;
@@ -227,7 +228,7 @@ select.form-control { appearance: none; }
   padding: 20px;
   animation: fadeIn 0.15s ease;
 }
-.modal {
+.sp-modal {
   background: var(--bg-surface);
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-xl);
@@ -237,8 +238,9 @@ select.form-control { appearance: none; }
   max-height: 90vh;
   overflow-y: auto;
   animation: slideUp 0.2s ease;
+  display: block; /* Ensure visibility */
 }
-.modal-title {
+.sp-modal-title {
   font-family: var(--font-display);
   font-size: 1.25rem;
   font-weight: 700;

@@ -339,6 +339,7 @@ export default function AuthPage() {
                 >
                   <option value="supervisor">Site Supervisor (Contractor)</option>
                   <option value="consultant">Project Consultant</option>
+                  <option value="admin">Administrator</option>
                 </select>
               </div>
             </div>

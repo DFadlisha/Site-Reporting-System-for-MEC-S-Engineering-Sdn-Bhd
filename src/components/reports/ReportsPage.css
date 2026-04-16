@@ -1,4 +1,61 @@
 /* src/components/reports/ReportsPage.css */
+
+/* ── Override Bootstrap table styles to respect theme vars ── */
+.rp-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+  color: var(--text-primary);
+  background: var(--bg-elevated);
+}
+.rp-table thead tr {
+  background: var(--bg-surface) !important;
+  border-bottom: 2px solid var(--border);
+}
+.rp-table thead th {
+  color: var(--text-secondary);
+  font-weight: 600;
+  padding: 12px 16px;
+  border: none;
+  white-space: nowrap;
+}
+.rp-table tbody tr {
+  background: var(--bg-elevated) !important;
+  border-bottom: 1px solid var(--border);
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.rp-table tbody tr:hover {
+  background: rgba(254, 111, 111, 0.06) !important;
+}
+.rp-table tbody tr.rp-row-active {
+  background: rgba(254, 111, 111, 0.1) !important;
+}
+.rp-table tbody td {
+  padding: 14px 16px;
+  color: var(--text-primary);
+  border: none;
+  vertical-align: middle;
+}
+.rp-table tbody td.td-muted {
+  color: var(--text-secondary);
+}
+
+/* Fix Bootstrap form-control colours inside filter bar */
+.rp-filter-bar .form-control,
+.rp-filter-bar select.form-control {
+  background: var(--bg-surface) !important;
+  color: var(--text-primary) !important;
+  border-color: var(--border) !important;
+}
+.rp-filter-bar .form-control::placeholder {
+  color: var(--text-muted) !important;
+}
+.rp-filter-bar select.form-control option {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+}
+
 .rp-list { display: flex; flex-direction: column; gap: 12px; }
 
 .rp-item { padding: 0; overflow: hidden; }
@@ -155,3 +212,86 @@
   font-weight: 600;
   box-shadow: var(--shadow-sm);
 }
+
+/* Visily Split Modal */
+.visily-split-modal {
+  display: flex;
+  min-height: 500px;
+}
+.visily-modal-left {
+  flex: 0 0 300px;
+  background: var(--bg-surface);
+  padding: 40px;
+  border-right: 1px solid var(--border);
+}
+.visily-status-item {
+  margin-bottom: 24px;
+}
+.visily-modal-right {
+  flex: 1;
+  background: var(--bg-elevated);
+  padding: 40px;
+  max-height: 85vh;
+  overflow-y: auto;
+}
+.visily-input {
+  width: 100%;
+  padding: 10px 14px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  font-size: 0.95rem;
+  background-color: var(--bg-elevated);
+  color: var(--text-primary);
+  outline: none;
+  transition: border-color 0.2s;
+}
+.visily-input::placeholder { color: #999; }
+.visily-input:focus { border-color: #F56A6A; }
+select.visily-input {
+  appearance: none;
+  background-image: url("data:image/svg+xml;charset=US-ASCII,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22292.4%22%20height%3D%22292.4%22%3E%3Cpath%20fill%3D%22%23999%22%20d%3D%22M287%2069.4a17.6%2017.6%200%200%200-13-5.4H18.4c-5%200-9.3%201.8-12.9%205.4A17.6%2017.6%200%200%200%200%2082.2c0%205%201.8%209.3%205.4%2012.9l128%20127.9c3.6%203.6%207.8%205.4%2012.8%205.4s9.2-1.8%2012.8-5.4L287%2095c3.5-3.5%205.4-7.8%205.4-12.8%200-5-1.9-9.2-5.5-12.8z%22%2F%3E%3C%2Fsvg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px top 50%;
+  background-size: 10px auto;
+}
+.visily-full-btn {
+  width: 100%;
+  padding: 10px;
+  background: #F56A6A;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: 0.2s;
+}
+.visily-full-btn:hover { background: #e35a5a; }
+.visily-coral-btn {
+  background: #F56A6A;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0 16px;
+  transition: 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.visily-coral-btn:hover { background: #e35a5a; }
+.visily-coral-btn:disabled { opacity: 0.7; cursor: not-allowed; }
+.visily-gray-btn {
+  background: #8e9eab;
+  color: #fff;
+  border: none;
+  border-radius: 6px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 0 16px;
+  transition: 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.visily-gray-btn:hover { background: #7a8b98; }

@@ -2,10 +2,12 @@
 import React, { useEffect, useState } from "react";
 import {
   FolderOpen, CheckSquare, FileText,
-  AlertTriangle, TrendingUp, CheckCircle, Bell, Database
+  AlertTriangle, TrendingUp, CheckCircle, Bell, Database, X, Download,
+  ClipboardList, ArrowRight, Eye, PlusCircle, MessageSquare, XCircle
 } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import Topbar from "../shared/Topbar";
-import { subscribeProjects, subscribeTasks, subscribeReports, subscribeIssues, seedDummyData, requestPushPermission } from "../../firebase/services";
+import { subscribeProjects, subscribeTasks, subscribeReports, subscribeIssues, seedDummyData, requestPushPermission, subscribeNotifications } from "../../firebase/services";
 import { useAuth } from "../../contexts/AuthContext";
 import { useTheme } from "../../contexts/ThemeContext";
 import toast from "react-hot-toast";
@@ -42,8 +44,14 @@ const MOCK_AREA = [
 
 export default function Dashboard() {
   const { isDarkMode } = useTheme();
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
+  const navigate = useNavigate();
   
+  const role = profile?.role?.toLowerCase() || "";
+  const isConsultant = role === "consultant";
+  const isSupervisor = role === "supervisor";
+  const isAdmin = role === "admin";
+
   const themeColors = {
     info: isDarkMode ? "#58a6ff" : "#3b82f6",
     success: isDarkMode ? "#3fb950" : "#10b981",
@@ -61,25 +69,73 @@ export default function Dashboard() {
   const [tasks, setTasks]       = useState([]);
   const [reports, setReports]   = useState([]);
   const [issues, setIssues]     = useState([]);
+  const [selectedExportProject, setSelectedExportProject] = useState(null);
+
+  // New supervisor filter and notifications states
+  const [notifications, setNotifications] = useState([]);
+  const [supervisorFilterProject, setSupervisorFilterProject] = useState("");
+  const [supervisorFilterStatus, setSupervisorFilterStatus] = useState("all");
+  const [viewMode, setViewMode] = useState("list");
 
   useEffect(() => {
     const u1 = subscribeProjects(setProjects);
     const u2 = subscribeTasks(null, setTasks);
     const u3 = subscribeReports(null, setReports);
     const u4 = subscribeIssues(setIssues);
-    return () => { u1(); u2(); u3(); u4(); };
-  }, []);
+    let u5;
+    if (user?.uid) {
+      u5 = subscribeNotifications(user.uid, setNotifications);
+    }
+    return () => { u1(); u2(); u3(); u4(); if(u5) u5(); };
+  }, [user]);
 
-  const doneTasks     = tasks.filter((t) => t.status === "done").length;
+  // ── Role-specific computed metrics ──────────────────────────────
+  const myTasks = isSupervisor
+    ? tasks.filter(t => t.assignedTo === profile?.name || t.assignedToUid === user?.uid)
+    : tasks;
+  const doneTasks     = myTasks.filter((t) => t.status === "done").length;
+  const inProgressTasks = myTasks.filter((t) => t.status === "inprogress").length;
   const pendingReports = reports.filter((r) => r.status === "pending").length;
   const openIssues    = issues.filter((i) => i.status === "open").length;
 
-  const stats = [
+  // ── Role-specific stat cards (per flowchart) ────────────────────
+  const consultantStats = [
     { label: "Active Projects",  value: projects.length, icon: FolderOpen,   color: themeColors.info },
-    { label: "Tasks Completed",  value: doneTasks,        icon: CheckSquare,  color: themeColors.success },
-    { label: "Pending Reports",  value: pendingReports,   icon: FileText,     color: themeColors.warning },
-    { label: "Open Issues",      value: openIssues,       icon: AlertTriangle,color: themeColors.danger },
+    { label: "Tasks Created",    value: tasks.length,    icon: CheckSquare,  color: themeColors.success },
+    { label: "Pending Reviews",  value: pendingReports,  icon: FileText,     color: themeColors.warning },
+    { label: "Open Issues",      value: openIssues,      icon: AlertTriangle,color: themeColors.danger },
   ];
+
+  const supervisorStats = [
+    { label: "My Tasks",         value: myTasks.length,    icon: CheckSquare,  color: themeColors.info },
+    { label: "Tasks Completed",  value: doneTasks,         icon: CheckCircle,  color: themeColors.success },
+    { label: "In Progress",      value: inProgressTasks,   icon: TrendingUp,   color: themeColors.warning },
+    { label: "Open Issues",      value: openIssues,        icon: AlertTriangle,color: themeColors.danger },
+  ];
+
+  const adminStats = [
+    { label: "Active Projects",  value: projects.length, icon: FolderOpen,   color: themeColors.info },
+    { label: "Tasks Completed",  value: doneTasks,       icon: CheckSquare,  color: themeColors.success },
+    { label: "Pending Reports",  value: pendingReports,  icon: FileText,     color: themeColors.warning },
+    { label: "Open Issues",      value: openIssues,      icon: AlertTriangle,color: themeColors.danger },
+  ];
+
+  const stats = isConsultant ? consultantStats : isSupervisor ? supervisorStats : adminStats;
+
+  // ── Role-specific quick actions (per flowchart) ─────────────────
+  const consultantActions = [
+    { label: "Manage Projects & Tasks", desc: "Create tasks, assign to supervisor", icon: FolderOpen, color: themeColors.info, path: "/tasks" },
+    { label: "Review Daily Reports", desc: "Approve / reject with comments", icon: ClipboardList, color: themeColors.warning, path: "/reports" },
+    { label: "Track Issues", desc: "Update status, resolve issues", icon: AlertTriangle, color: themeColors.danger, path: "/issues" },
+  ];
+
+  const supervisorActions = [
+    { label: "View Assigned Tasks", desc: "Check status, view deadlines", icon: Eye, color: themeColors.info, path: "/tasks" },
+    { label: "Submit Daily Report", desc: "Fill form, upload photos & sign", icon: PlusCircle, color: themeColors.success, path: "/reports" },
+    { label: "Report New Issue", desc: "Set priority, add description", icon: AlertTriangle, color: themeColors.danger, path: "/issues" },
+  ];
+
+  const quickActions = isConsultant ? consultantActions : isSupervisor ? supervisorActions : consultantActions;
 
   // Chart.js Data configurations
   const lineChartData = {
@@ -129,13 +185,14 @@ export default function Dashboard() {
     }
   };
 
+  const taskData = isSupervisor ? myTasks : tasks;
   const doughnutData = {
     labels: ['To Do', 'In Progress', 'Done'],
     datasets: [{
       data: [
-        tasks.filter((t) => t.status === "todo").length,
-        tasks.filter((t) => t.status === "inprogress").length,
-        doneTasks
+        taskData.filter((t) => t.status === "todo").length,
+        taskData.filter((t) => t.status === "inprogress").length,
+        taskData.filter((t) => t.status === "done").length,
       ],
       backgroundColor: [COLORS[0], COLORS[2], COLORS[1]],
       borderWidth: 0,
@@ -174,32 +231,57 @@ export default function Dashboard() {
       const token = await requestPushPermission(profile?.id);
       toast.dismiss();
       if (token) {
-        toast.success("FCM Notifications Enabled!");
+        toast.success("FCM Notifications Enabled (Mock or Real)!");
       } else {
-        toast.error("VAPID Key missing in code, but permission was granted!");
+        toast.error("Push configuration failed. Ensure notifications are allowed by your browser.");
       }
     } catch (e) {
       toast.dismiss();
     }
   }
 
+  // Role-specific welcome message
+  const roleLabel = isConsultant ? "Consultant" : isSupervisor ? "Site Supervisor" : "Administrator";
+
   return (
     <div>
       <Topbar title="Dashboard" />
       <div className="page-body">
 
-        {/* Action Buttons for Presentation / Thesis Defense */}
-        <div className="d-flex flex-wrap gap-2 mb-4 justify-content-end">
-          <button className="btn btn-sm btn-outline-primary" onClick={handlePush} style={{borderColor: themeColors.info, color: themeColors.info}}>
-            <Bell size={16} /> Enable Push Notifications (FCM)
-          </button>
-          <button className="btn btn-sm btn-outline-warning" onClick={handleSeed} style={{borderColor: themeColors.warning, color: themeColors.warning}}>
-            <Database size={16} /> Auto-Seed Dummy Data
-          </button>
+        {/* Role-aware welcome banner */}
+        <div className="db-welcome-banner" style={{
+          background: `linear-gradient(135deg, ${themeColors.info}22, ${themeColors.success}11)`,
+          border: `1px solid ${themeColors.border}`,
+          borderRadius: "var(--radius-lg)",
+          padding: "20px 24px",
+          marginBottom: 20,
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          flexWrap: "wrap",
+          gap: 12,
+        }}>
+          <div>
+            <h2 style={{ fontSize: "1.25rem", fontWeight: 700, color: "var(--text-primary)", margin: 0, fontFamily: "var(--font-display)" }}>
+              Welcome back, {profile?.name || "User"} 👋
+            </h2>
+            <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", margin: "4px 0 0" }}>
+              Logged in as <strong style={{ color: themeColors.info }}>{roleLabel}</strong> — Here's your dashboard overview.
+            </p>
+          </div>
+          <div className="d-flex flex-wrap gap-2">
+            <button className="btn btn-sm btn-outline-primary" onClick={handlePush} style={{borderColor: themeColors.info, color: themeColors.info}}>
+              <Bell size={16} /> Enable Notifications
+            </button>
+            {isAdmin && (
+              <button className="btn btn-sm btn-outline-warning" onClick={handleSeed} style={{borderColor: themeColors.warning, color: themeColors.warning}}>
+                <Database size={16} /> Seed Data
+              </button>
+            )}
+          </div>
         </div>
 
-        {/* Stat cards - Bootstrap integration via row/col */}
-        {/* We use standard custom CSS but inject Bootstrap layout classes to adhere to thesis */}
+        {/* Stat cards */}
         <div className="row g-4 mb-4">
           {stats.map(({ label, value, icon: Icon, color }) => (
             <div className="col-12 col-md-6 col-xl-3" key={label}>
@@ -214,6 +296,44 @@ export default function Dashboard() {
               </div>
             </div>
           ))}
+        </div>
+
+        {/* Quick Actions — role-specific (per flowchart "Choose action" branch) */}
+        <div className="card p-4 mb-4">
+          <div className="db-chart-title fw-bold mb-3 d-flex align-items-center gap-2">
+            <ArrowRight size={18} /> Quick Actions
+          </div>
+          <div className="row g-3">
+            {quickActions.map(({ label, desc, icon: Icon, color, path }) => (
+              <div className="col-12 col-md-4" key={label}>
+                <div
+                  className="db-quick-action card h-100"
+                  style={{ cursor: "pointer", border: `1px solid ${color}33`, transition: "all 0.2s" }}
+                  onClick={() => {
+                    if (label === "Submit Daily Report") {
+                      navigate(path, { state: { openModal: true } });
+                    } else if (label === "Report New Issue") {
+                      navigate(path, { state: { openModal: true } });
+                    } else {
+                      navigate(path);
+                    }
+                  }}
+                  onMouseEnter={(e) => { e.currentTarget.style.borderColor = color; e.currentTarget.style.transform = "translateY(-2px)"; }}
+                  onMouseLeave={(e) => { e.currentTarget.style.borderColor = `${color}33`; e.currentTarget.style.transform = "translateY(0)"; }}
+                >
+                  <div className="d-flex align-items-center gap-3">
+                    <div style={{ background: `${color}22`, color, padding: "10px", borderRadius: "var(--radius-md)" }}>
+                      <Icon size={22} />
+                    </div>
+                    <div>
+                      <div style={{ fontWeight: 600, fontSize: "0.95rem", color: "var(--text-primary)" }}>{label}</div>
+                      <div style={{ fontSize: "0.78rem", color: "var(--text-secondary)" }}>{desc}</div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
 
         {/* Charts row */}
@@ -234,7 +354,7 @@ export default function Dashboard() {
           <div className="col-12 col-lg-4">
             <div className="card h-100 p-4">
               <div className="db-chart-title mb-3 fw-bold d-flex align-items-center gap-2">
-                <CheckCircle size={18} /> Task Distribution (Chart.js)
+                <CheckCircle size={18} /> {isSupervisor ? "My Task Distribution" : "Task Distribution"} (Chart.js)
               </div>
               <div style={{ height: "300px" }}>
                 <Doughnut data={doughnutData} options={doughnutOptions} />
@@ -243,48 +363,277 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Recent projects */}
-        <div className="card p-4">
-          <div className="db-chart-title fw-bold mb-3 d-flex align-items-center gap-2">
-            <FolderOpen size={18} /> Recent Projects
-          </div>
-          {projects.length === 0 ? (
-            <p className="text-muted small">
-              No projects yet. Create one from the Task Tracking page.
-            </p>
-          ) : (
-            <div className="db-project-list">
-              {projects.slice(0, 5).map((p) => (
-                <div key={p.id} className="d-flex flex-column flex-md-row align-items-md-center justify-content-between py-3 border-bottom gap-3">
-                  <div className="d-flex align-items-center gap-3">
-                    <div className="db-project-icon text-primary rounded" style={{ background: `${themeColors.info}22`, padding: '10px' }}>
-                      <FolderOpen size={18} style={{ color: themeColors.info }} />
-                    </div>
-                    <div>
-                      <div className="fw-semibold">{p.name}</div>
-                      <div className="text-muted small">{p.location || "—"}</div>
-                    </div>
-                  </div>
-                  
-                  <div className="d-flex align-items-center gap-4">
-                    <div className="d-none d-md-flex align-items-center gap-2">
-                      <div className="progress" style={{ width: "120px", height: "8px", borderRadius: "10px" }}>
-                        <div
-                          className="progress-bar"
-                          style={{ width: `${p.progress || 0}%`, background: themeColors.info, borderRadius: "10px" }}
-                        />
-                      </div>
-                      <span className="small text-muted fw-semibold">{p.progress || 0}%</span>
-                    </div>
-                    <span className={`badge`} style={{ background: `${themeColors.warning}22`, color: themeColors.warning, padding: '6px 10px', borderRadius: '10px' }}>{p.status}</span>
-                  </div>
-                </div>
-              ))}
+        {/* Recent projects — visible to Consultant & Admin */}
+        {(isConsultant || isAdmin) && (
+          <div className="card p-4">
+            <div className="db-chart-title fw-bold mb-3 d-flex align-items-center gap-2">
+              <FolderOpen size={18} /> Recent Projects
             </div>
-          )}
-        </div>
+            {projects.length === 0 ? (
+              <p className="text-muted small">
+                No projects yet. Create one from the Task Tracking page.
+              </p>
+            ) : (
+              <div className="db-project-list">
+                {projects.slice(0, 5).map((p) => (
+                  <div key={p.id} className="d-flex flex-column flex-md-row align-items-md-center justify-content-between py-3 border-bottom gap-3 db-clickable-project" onClick={() => setSelectedExportProject(p)}>
+                    <div className="d-flex align-items-center gap-3">
+                      <div className="db-project-icon text-primary rounded" style={{ background: `${themeColors.info}22`, padding: '10px' }}>
+                        <FolderOpen size={18} style={{ color: themeColors.info }} />
+                      </div>
+                      <div>
+                        <div className="fw-semibold" style={{ color: "var(--text-primary)" }}>{p.name}</div>
+                        <div className="small" style={{ color: "var(--text-secondary)" }}>{p.location || "—"}</div>
+                      </div>
+                    </div>
+                    
+                    <div className="d-flex align-items-center gap-4">
+                      <div className="d-none d-md-flex align-items-center gap-2">
+                        <div className="progress" style={{ width: "120px", height: "8px", borderRadius: "10px" }}>
+                          <div
+                            className="progress-bar"
+                            style={{ width: `${p.progress || 0}%`, background: themeColors.info, borderRadius: "10px" }}
+                          />
+                        </div>
+                        <span className="small fw-semibold" style={{ color: "var(--text-secondary)" }}>{p.progress || 0}%</span>
+                      </div>
+                      <span className={`badge`} style={{ background: `${themeColors.warning}22`, color: themeColors.warning, padding: '6px 10px', borderRadius: '10px' }}>{p.status}</span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Supervisor: Task tracking and notifications layout */}
+        {isSupervisor && (
+          <div className="d-flex flex-column flex-xl-row gap-4 align-items-start mt-4">
+            {/* Left side tasks area */}
+            <div className="flex-grow-1 w-100">
+              <div className="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
+                <div className="d-flex gap-2">
+                  <select 
+                    className="form-control form-control-sm" 
+                    style={{ width: "160px", background: "transparent", borderColor: "var(--border)" }}
+                    value={supervisorFilterProject}
+                    onChange={(e) => setSupervisorFilterProject(e.target.value)}
+                  >
+                    <option value="">Project (All)</option>
+                    {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  </select>
+                  <select 
+                    className="form-control form-control-sm" 
+                    style={{ width: "160px", background: "transparent", borderColor: "var(--border)" }}
+                    value={supervisorFilterStatus}
+                    onChange={(e) => setSupervisorFilterStatus(e.target.value)}
+                  >
+                    <option value="all">All tasks</option>
+                    <option value="todo">To Do</option>
+                    <option value="inprogress">In Progress</option>
+                    <option value="done">Done</option>
+                  </select>
+                </div>
+                
+                <div className="d-flex gap-2 flex-wrap">
+                  <button className={`btn btn-sm ${viewMode === 'list' ? 'btn-danger' : 'btn-outline-danger'}`} style={viewMode === 'list' ? {backgroundColor: '#F56A6A', border: 'none'} : {color: '#F56A6A', borderColor: '#F56A6A'}} onClick={() => setViewMode('list')}><ClipboardList size={14}/> List</button>
+                  <button className={`btn btn-sm ${viewMode === 'board' ? 'btn-danger' : 'btn-outline-danger'}`} style={viewMode === 'board' ? {backgroundColor: '#F56A6A', border: 'none'} : {color: '#F56A6A', borderColor: '#F56A6A'}} onClick={() => setViewMode('board')}><CheckSquare size={14}/> Board</button>
+                  <button className={`btn btn-sm ${viewMode === 'calendar' ? 'btn-danger' : 'btn-outline-danger'}`} style={viewMode === 'calendar' ? {backgroundColor: '#F56A6A', border: 'none'} : {color: '#F56A6A', borderColor: '#F56A6A'}} onClick={() => setViewMode('calendar')}>Calendar</button>
+                  <button className={`btn btn-sm ${viewMode === 'gantt' ? 'btn-danger' : 'btn-outline-danger'}`} style={viewMode === 'gantt' ? {backgroundColor: '#F56A6A', border: 'none'} : {color: '#F56A6A', borderColor: '#F56A6A'}} onClick={() => setViewMode('gantt')}>Gantt</button>
+                  <button className="btn btn-sm" style={{backgroundColor: '#F56A6A', color: '#fff', border: 'none'}}>✓ Show Completed</button>
+                </div>
+              </div>
+
+              <div className="row g-3">
+                {myTasks
+                  .filter(t => (supervisorFilterProject ? t.projectId === supervisorFilterProject : true))
+                  .filter(t => (supervisorFilterStatus === "all" ? true : t.status === supervisorFilterStatus))
+                  .length === 0 ? (
+                  <div className="col-12"><p className="text-muted small">No tasks found matching criteria.</p></div>
+                ) : (
+                  myTasks
+                    .filter(t => (supervisorFilterProject ? t.projectId === supervisorFilterProject : true))
+                    .filter(t => (supervisorFilterStatus === "all" ? true : t.status === supervisorFilterStatus))
+                    .map((t) => (
+                    <div key={t.id} className="col-12 col-md-6">
+                      <div 
+                        className="card p-3 h-100 visily-task-card" 
+                        style={{border: "1px solid var(--border)", borderRadius: "8px", cursor: "pointer", background: "var(--bg-card)"}}
+                        onClick={() => navigate("/tasks")}
+                      >
+                         <div style={{fontSize: "0.95rem", fontWeight: "600", marginBottom: "20px", color: "var(--text-primary)"}}>{t.title}</div>
+                         <div className="d-flex mb-3 gap-2 flex-wrap">
+                           {t.priority && (
+                              <span style={{fontSize: "0.7rem", padding: "4px 8px", borderRadius: "12px", background: "var(--accent-dim)", color: "var(--accent)", fontWeight: 700}}>
+                                 {t.priority.toUpperCase()}
+                              </span>
+                           )}
+                           <span style={{fontSize: "0.7rem", padding: "4px 8px", borderRadius: "12px", background: "rgba(88,166,255,0.15)", color: "var(--info)", fontWeight: 700}}>
+                             {t.projectName || "Site Unknown"}
+                           </span>
+                         </div>
+                         <div className="d-flex justify-content-between align-items-center mt-auto pt-2">
+                           <div className="text-muted d-flex gap-3 align-items-center" style={{fontSize: "0.8rem"}}>
+                             <span><MessageSquare size={14}/> 3</span>
+                             <span><ClipboardList size={14}/> 1</span>
+                           </div>
+                           <div className="d-flex">
+                             <img src="https://i.pravatar.cc/150?u=4" alt="worker" style={{width: 24, height: 24, borderRadius: '50%', border: '2px solid #fff', marginLeft: '-8px'}}/>
+                             <img src="https://i.pravatar.cc/150?u=5" alt="worker" style={{width: 24, height: 24, borderRadius: '50%', border: '2px solid #fff', marginLeft: '-8px'}}/>
+                             <img src="https://i.pravatar.cc/150?u=6" alt="worker" style={{width: 24, height: 24, borderRadius: '50%', border: '2px solid #fff', marginLeft: '-8px'}}/>
+                           </div>
+                         </div>
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </div>
+
+            {/* Right Side Notifications */}
+            <div className="visily-notification-pane" style={{width: "100%", flex: "0 0 340px", background: "var(--bg-surface)", padding: "24px", borderRadius: "8px", border: "1px solid var(--border)"}}>
+               <div className="d-flex justify-content-between align-items-center mb-4">
+                 <h5 style={{fontWeight: 700, margin: 0, color: "var(--text-primary)"}}>Notification</h5>
+                 <span style={{fontSize: "0.8rem", color: "var(--text-secondary)", cursor: "pointer"}}>✓ Mark All Read</span>
+               </div>
+               
+               <div className="notifications-widget" style={{maxHeight: '400px', overflowY: 'auto'}}>
+                   {notifications.length > 0 && notifications.slice(0, 5).map((n) => (
+                     <div key={n.id} className="d-flex gap-3" style={{paddingBottom: 12, borderBottom: '1px solid var(--border)', marginBottom: 12}}>
+                        <div style={{marginTop: 2}}>
+                          {n.type === 'success' ? <CheckCircle size={16} color="var(--success)"/> : n.type === 'error' ? <XCircle size={16} color="var(--danger)"/> : <Bell size={16} color="var(--accent)"/>}
+                        </div>
+                        <div>
+                           <div style={{fontSize: '0.85rem', color: 'var(--text-primary)', fontWeight: 600, lineHeight: 1.4}}>{n.message}</div>
+                           <div style={{fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: 4}}>
+                             {n.createdAt?.toDate ? n.createdAt.toDate().toLocaleTimeString() : 'Just now'}
+                           </div>
+                        </div>
+                     </div>
+                   ))}
+
+                  {notifications.length === 0 && (
+                   <>
+                    <div className="d-flex gap-3" style={{paddingBottom: 12, borderBottom: '1px solid var(--border)', marginBottom: 12}}>
+                        <div style={{marginTop: 2}}><CheckCircle size={16} color="var(--success)"/></div>
+                        <div>
+                           <div style={{fontSize: '0.85rem', color: 'var(--text-primary)', fontWeight: 600, lineHeight: 1.4}}>Task 'Electrical Work' assigned to you</div>
+                           <div style={{fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: 4}}>2 mins ago</div>
+                        </div>
+                    </div>
+                    <div className="d-flex gap-3" style={{paddingBottom: 12, borderBottom: '1px solid var(--border)', marginBottom: 12}}>
+                        <div style={{marginTop: 2}}><XCircle size={16} color="var(--danger)"/></div>
+                        <div>
+                           <div style={{fontSize: '0.85rem', color: 'var(--text-primary)', fontWeight: 600, lineHeight: 1.4}}>Your report on Site B was rejected: 'Missing GPS data'</div>
+                           <div style={{fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: 4}}>10 mins ago</div>
+                        </div>
+                    </div>
+                   </>
+                  )}
+                </div>
+            </div>
+          </div>
+        )}
+
+        {/* Export Project Modal (Consultant/Admin) */}
+        {selectedExportProject && (
+          <div className="modal-overlay d-print-none" onClick={() => setSelectedExportProject(null)}>
+            <div className="sp-modal" style={{ maxWidth: '700px' }} onClick={(e) => e.stopPropagation()}>
+              <div className="sp-modal-title d-flex justify-content-between align-items-center mb-0">
+                <span style={{ fontSize: '1.4rem' }}>{selectedExportProject.name} — Report</span>
+                <div className="d-flex gap-2">
+                   <button className="btn btn-outline-secondary btn-sm" onClick={() => window.print()}>
+                     <Download size={14} /> Export PDF
+                   </button>
+                   <button className="btn btn-ghost btn-sm p-1" onClick={() => setSelectedExportProject(null)}>
+                     <X size={18} />
+                   </button>
+                </div>
+              </div>
+
+              <div className="mt-4">
+                <div className="d-flex justify-content-between text-muted small mb-4 pb-3" style={{ borderBottom: "1px dashed var(--border)" }}>
+                  <span><strong>Location:</strong> {selectedExportProject.location || "N/A"}</span>
+                  <span><strong>Overall Progress:</strong> {selectedExportProject.progress || 0}%</span>
+                  <span className="text-uppercase text-warning"><strong>Status:</strong> {selectedExportProject.status}</span>
+                </div>
+                
+                <h6 className="mb-3" style={{ color: "var(--text-primary)", fontWeight: "600" }}>Master Task List</h6>
+                <div className="table-responsive">
+                  <table className="table table-hover table-sm">
+                    <thead>
+                      <tr>
+                        <th style={{ color: "var(--text-secondary)" }}>Task Title</th>
+                        <th style={{ color: "var(--text-secondary)" }}>Assigned Worker</th>
+                        <th style={{ color: "var(--text-secondary)" }}>Status</th>
+                        <th style={{ color: "var(--text-secondary)" }}>Date Created</th>
+                      </tr>
+                    </thead>
+                    <tbody style={{ color: "var(--text-primary)" }}>
+                      {tasks.filter(t => t.projectId === selectedExportProject.id).length === 0 ? (
+                        <tr><td colSpan="4" className="text-center py-4 text-muted">No tasks assigned to this project yet.</td></tr>
+                      ) : (
+                        tasks.filter(t => t.projectId === selectedExportProject.id).map(t => (
+                          <tr key={t.id}>
+                            <td>{t.title}</td>
+                            <td>{t.assignedTo || "Unassigned"}</td>
+                            <td>
+                              <span className={`badge badge-${t.status || 'todo'}`}>
+                                {t.status}
+                              </span>
+                            </td>
+                            <td>{t.createdAt?.toDate ? new Date(t.createdAt.toDate()).toLocaleDateString() : 'N/A'}</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          </div>
+        )}
 
       </div>
+      
+      {/* Invisible Printable Component triggered by window.print() */}
+      {selectedExportProject && (
+        <div className="printable-master-report">
+          <h1 style={{ fontSize: 24, marginBottom: 10, color: '#000' }}>{selectedExportProject.name} — Master Project Report</h1>
+          <div style={{ marginBottom: 30, fontSize: 14, color: '#444', display: 'flex', gap: '30px' }}>
+             <span><strong>Location:</strong> {selectedExportProject.location || "N/A"}</span>
+             <span><strong>Progress:</strong> {selectedExportProject.progress || 0}%</span>
+             <span><strong>Status:</strong> {selectedExportProject.status}</span>
+          </div>
+
+          <h2 style={{ fontSize: 18, borderBottom: '1px solid #ccc', paddingBottom: 5, marginBottom: 15 }}>Assigned Project Tasks</h2>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, textAlign: 'left' }}>
+            <thead>
+              <tr style={{ backgroundColor: '#f0f0f0' }}>
+                <th style={{ padding: '8px', border: '1px solid #ccc' }}>Task Title</th>
+                <th style={{ padding: '8px', border: '1px solid #ccc' }}>Assigned To</th>
+                <th style={{ padding: '8px', border: '1px solid #ccc' }}>Status</th>
+                <th style={{ padding: '8px', border: '1px solid #ccc' }}>Date Created</th>
+              </tr>
+            </thead>
+            <tbody>
+              {tasks.filter(t => t.projectId === selectedExportProject.id).length === 0 ? (
+                <tr><td colSpan="4" style={{ padding: '8px', border: '1px solid #ccc', textAlign: 'center' }}>No tasks found.</td></tr>
+              ) : (
+                tasks.filter(t => t.projectId === selectedExportProject.id).map(t => (
+                  <tr key={t.id}>
+                    <td style={{ padding: '8px', border: '1px solid #ccc' }}>{t.title}</td>
+                    <td style={{ padding: '8px', border: '1px solid #ccc' }}>{t.assignedTo || "—"}</td>
+                    <td style={{ padding: '8px', border: '1px solid #ccc', textTransform: 'uppercase' }}>{t.status}</td>
+                    <td style={{ padding: '8px', border: '1px solid #ccc' }}>{t.createdAt?.toDate ? new Date(t.createdAt.toDate()).toLocaleDateString() : 'N/A'}</td>
+                  </tr>
+                ))
+              )}
+            </tbody>
+          </table>
+          <p style={{ marginTop: 40, fontSize: 10, color: '#666' }}>Generated automatically by SPRS Enterprise Reporting Engine.</p>
+        </div>
+      )}
     </div>
   );
 }

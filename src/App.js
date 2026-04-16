@@ -12,6 +12,8 @@ import TasksPage from "./components/tasks/TasksPage";
 import ReportsPage from "./components/reports/ReportsPage";
 import IssuesPage from "./components/issues/IssuesPage";
 import NotificationsPage from "./components/notifications/NotificationsPage";
+import UsersPage from "./components/admin/UsersPage";
+import AuditPage from "./components/admin/AuditPage";
 import "./index.css";
 
 export default function App() {
@@ -76,6 +78,22 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <AppLayout><NotificationsPage /></AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/users"
+            element={
+              <ProtectedRoute>
+                <AppLayout><UsersPage /></AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/audit"
+            element={
+              <ProtectedRoute>
+                <AppLayout><AuditPage /></AppLayout>
               </ProtectedRoute>
             }
           />

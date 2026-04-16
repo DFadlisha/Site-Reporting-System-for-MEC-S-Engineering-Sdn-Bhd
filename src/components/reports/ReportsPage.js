@@ -2,12 +2,13 @@
 import React, { useEffect, useState, useRef } from "react";
 import {
   Plus, X, Loader2, FileText, Camera, CheckCircle,
-  XCircle, Clock, MapPin, ChevronDown, ChevronUp,
+  XCircle, Clock, MapPin, ChevronDown, ChevronUp, MessageSquare,
 } from "lucide-react";
+import { useLocation } from "react-router-dom";
 import Topbar from "../shared/Topbar";
 import {
   createReport, subscribeReports, updateReport,
-  subscribeProjects, createNotification,
+  subscribeProjects, createNotification, subscribeTasks
 } from "../../firebase/services";
 import { useAuth } from "../../contexts/AuthContext";
 import toast from "react-hot-toast";
@@ -16,15 +17,38 @@ import "./ReportsPage.css";
 
 export default function ReportsPage() {
   const { profile, user } = useAuth();
-  const isConsultant = profile?.role === "consultant";
+  const role = profile?.role?.toLowerCase() || "";
+  const isConsultant = role === "consultant";
+  const isAdmin = role === "admin";
+  const isSupervisor = role === "supervisor";
+
+  // ── Flowchart role permissions ──────────────────────────────────
+  // Consultant: Review daily reports → Approve/reject, Add comments
+  // Supervisor: Submit daily log report → Fill form, Upload photos & sign
+  const canReview = isConsultant || isAdmin;
+  const canSubmit = isSupervisor; // Only supervisor submits reports
+  const canExport = isAdmin || isConsultant;
 
   const [reports, setReports]   = useState([]);
   const [projects, setProjects] = useState([]);
   const [loading, setLoading]   = useState(false);
   const [showModal, setShowModal] = useState(false);
-  const [expanded, setExpanded]   = useState(null);
+  const [showExportModal, setShowExportModal] = useState(false);
+  const [activeReport, setActiveReport] = useState(null);
   const [filterStatus, setFilterStatus] = useState("all");
+  const [filterProject, setFilterProject] = useState("");
+  const [filterSearch, setFilterSearch] = useState("");
+  const [inlineComment, setInlineComment] = useState("");
+  const [tasks, setTasks] = useState([]);
+  const [expandedExportProject, setExpandedExportProject] = useState(null);
+  const [selectedExportProject, setSelectedExportProject] = useState(null);
   const fileInputRef = useRef(null);
+
+  // Comment modal state for approve/reject with comments (per flowchart)
+  const [showCommentModal, setShowCommentModal] = useState(false);
+  const [commentAction, setCommentAction] = useState(null); // "approve" or "reject"
+  const [commentTarget, setCommentTarget] = useState(null); // the report
+  const [commentText, setCommentText] = useState("");
 
   const [form, setForm] = useState({
     title: "", projectId: "", projectName: "", date: "", weather: "",
@@ -38,8 +62,17 @@ export default function ReportsPage() {
   useEffect(() => {
     const u1 = subscribeReports(null, setReports);
     const u2 = subscribeProjects(setProjects);
-    return () => { u1(); u2(); };
+    const u3 = subscribeTasks(null, setTasks);
+    return () => { u1(); u2(); u3(); };
   }, []);
+
+  const location = useLocation();
+  useEffect(() => {
+    if (location.state?.openModal && canSubmit) {
+      setShowModal(true);
+      window.history.replaceState({}, document.title);
+    }
+  }, [location, canSubmit]);
 
   const handlePhotos = (e) => {
     const files = Array.from(e.target.files);
@@ -88,25 +121,55 @@ export default function ReportsPage() {
     } finally { setLoading(false); }
   };
 
-  const handleApprove = async (report) => {
-    await updateReport(report.id, { status: "approved", reviewedBy: profile?.name, reviewedAt: new Date().toISOString() });
-    await createNotification(report.submittedById, `Your report "${report.title}" has been approved.`, "success");
-    toast.success("Report approved");
+  // ── Inline review submit for split pane ──
+  const handleSubmitReviewInline = async (report, action) => {
+    try {
+      const dbAction = action === "approve" ? "approved" : "rejected";
+      await updateReport(report.id, {
+        status: dbAction,
+        reviewedBy: profile?.name,
+        reviewedAt: new Date().toISOString(),
+        reviewComment: inlineComment || "",
+        ...(action === "reject" && { rejectedReason: inlineComment || "" })
+      });
+      if (report.submittedById) {
+        await createNotification(
+          report.submittedById, 
+          `Your report "${report.title}" was ${dbAction}.${inlineComment ? ` Comment: ${inlineComment}` : ""}`, 
+          action === "approve" ? "success" : "error"
+        );
+      }
+      toast.success(`Report ${dbAction}`);
+      setActiveReport(null);
+      setInlineComment("");
+    } catch (err) {
+      toast.error(err.message);
+    }
   };
 
-  const handleReject = async (report) => {
-    const reason = window.prompt("Reason for rejection (optional):");
-    await updateReport(report.id, { status: "rejected", rejectedReason: reason || "", reviewedBy: profile?.name });
-    await createNotification(report.submittedById, `Your report "${report.title}" was rejected. ${reason ? "Reason: " + reason : ""}`, "error");
-    toast.success("Report rejected");
-  };
+  const filtered = reports.filter(r => {
+    if (filterStatus !== "all" && r.status !== filterStatus) return false;
+    if (filterProject && r.projectId !== filterProject) return false;
+    if (filterSearch && !r.title?.toLowerCase().includes(filterSearch.toLowerCase()) && !r.projectName?.toLowerCase().includes(filterSearch.toLowerCase())) return false;
+    return true;
+  });
 
-  const filtered = filterStatus === "all" ? reports : reports.filter((r) => r.status === filterStatus);
+  const totalReports = reports.length;
+  const pendingReports = reports.filter(r => r.status === "pending").length;
+  const approvedReports = reports.filter(r => r.status === "approved").length;
+  const rejectedReports = reports.filter(r => r.status === "rejected").length;
 
-  const statusIcon = (s) => {
-    if (s === "approved") return <CheckCircle size={14} color="var(--success)" />;
-    if (s === "rejected") return <XCircle size={14} color="var(--danger)" />;
-    return <Clock size={14} color="var(--warning)" />;
+  const handleExportCSV = () => {
+    let csv = "Title,Project,Date,Submitted By,Status,Weather,Workforce,Issues\n";
+    filtered.forEach(r => {
+      csv += `"${r.title}","${r.projectName || ""}","${r.date}","${r.submittedBy}","${r.status}","${r.weather || ""}","${r.workforce || ""}","${r.issues || ""}"\n`;
+    });
+    const blob = new Blob([csv], { type: "text/csv" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "reports_export.csv";
+    a.click();
   };
 
   return (
@@ -114,223 +177,635 @@ export default function ReportsPage() {
       <Topbar title="Daily Reports" />
       <div className="page-body">
 
-        {/* Header */}
-        <div className="page-header">
-          <div>
-            <h2 className="page-title">Site Daily Reports</h2>
-            <p className="page-subtitle">{filtered.length} report{filtered.length !== 1 ? "s" : ""}</p>
-          </div>
-          <div style={{ display: "flex", gap: 10, alignItems: "center" }}>
-            <div className="tk-filter-tabs">
-              {["all", "pending", "approved", "rejected"].map((s) => (
-                <button key={s} className={`tk-filter-tab ${filterStatus === s ? "active" : ""}`} onClick={() => setFilterStatus(s)}>
-                  {s.charAt(0).toUpperCase() + s.slice(1)}
-                </button>
-              ))}
-            </div>
-            {!isConsultant && (
-              <button className="btn btn-primary btn-sm" onClick={() => setShowModal(true)}>
-                <Plus size={14} /> Submit Report
-              </button>
-            )}
-          </div>
-        </div>
-
-        {/* Report list */}
-        {filtered.length === 0 ? (
-          <div className="tk-empty">
-            <FileText size={40} />
-            <p>No reports found</p>
-            {!isConsultant && <button className="btn btn-primary btn-sm" onClick={() => setShowModal(true)}><Plus size={14} /> Submit First Report</button>}
-          </div>
-        ) : (
-          <div className="rp-list">
-            {filtered.map((r) => (
-              <div key={r.id} className="rp-item card">
-                <div className="rp-item-header" onClick={() => setExpanded(expanded === r.id ? null : r.id)}>
-                  <div className="rp-item-left">
-                    <div className="rp-item-icon">
-                      <FileText size={16} />
-                    </div>
-                    <div>
-                      <div className="rp-item-title">{r.title || "Daily Log Report"}</div>
-                      <div className="rp-item-meta">
-                        {r.projectName && <span>{r.projectName}</span>}
-                        {r.date && <span>• {r.date}</span>}
-                        <span>• By {r.submittedBy}</span>
-                      </div>
-                    </div>
-                  </div>
-                  <div className="rp-item-right">
-                    <span className={`badge badge-${r.status}`} style={{ display: "flex", alignItems: "center", gap: 5 }}>
-                      {statusIcon(r.status)} {r.status}
-                    </span>
-                    {isConsultant && r.status === "pending" && (
-                      <div className="rp-actions" onClick={(e) => e.stopPropagation()}>
-                        <button className="btn btn-sm" style={{ background: "rgba(63,185,80,0.15)", color: "var(--success)", border: "1px solid rgba(63,185,80,0.3)" }} onClick={() => handleApprove(r)}>
-                          <CheckCircle size={13} /> Approve
-                        </button>
-                        <button className="btn btn-danger btn-sm" onClick={() => handleReject(r)}>
-                          <XCircle size={13} /> Reject
-                        </button>
-                      </div>
+        {/* Header and Grid Layout */}
+        <div className="d-flex flex-column flex-xl-row gap-4 align-items-start mb-4">
+           {/* Left Pane */}
+           <div className="flex-grow-1 w-100">
+              <div className="d-flex justify-content-end align-items-center mb-3">
+                 <div className="d-flex gap-2">
+                    {/* Provide Submit Report if Supervisor */}
+                    {canSubmit && (
+                      <button className="visily-coral-btn" onClick={() => setShowModal(true)}>
+                        <Plus size={16} style={{marginRight: 6}}/> Submit Report
+                      </button>
                     )}
-                    {expanded === r.id ? <ChevronUp size={16} color="var(--text-secondary)" /> : <ChevronDown size={16} color="var(--text-secondary)" />}
-                  </div>
+                    {/* Extra actions */}
+                    {canExport && (
+                      <button className="btn btn-outline-secondary btn-sm" onClick={() => setShowExportModal(true)}>
+                        Export Project Master
+                      </button>
+                    )}
+                 </div>
+              </div>
+
+              {/* Stats Cards */}
+              <div className="row g-3 mb-4">
+                 <div className="col-6 col-md-3">
+                    <div className="card p-3 h-100" style={{ border: '1px solid var(--border)', borderRadius: 8 }}>
+                       <div className="text-muted" style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Total Reports</div>
+                       <div className="d-flex justify-content-between align-items-end mt-2">
+                          <h3 style={{ margin: 0, fontWeight: 700, color: 'var(--text-primary)' }}>{totalReports}</h3>
+                          <div style={{ background: 'var(--bg-surface)', padding: 8, borderRadius: '50%' }}><FileText size={16} color="var(--text-secondary)"/></div>
+                       </div>
+                    </div>
+                 </div>
+                 <div className="col-6 col-md-3">
+                    <div className="card p-3 h-100" style={{ border: '1px solid var(--border)', borderRadius: 8 }}>
+                       <div className="text-muted" style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Pending</div>
+                       <div className="d-flex justify-content-between align-items-end mt-2">
+                          <h3 style={{ margin: 0, fontWeight: 700, color: 'var(--text-primary)' }}>{pendingReports}</h3>
+                          <div style={{ background: 'rgba(194, 65, 12, 0.15)', padding: 8, borderRadius: '50%' }}><Clock size={16} color="var(--warning)"/></div>
+                       </div>
+                    </div>
+                 </div>
+                 <div className="col-6 col-md-3">
+                    <div className="card p-3 h-100" style={{ border: '1px solid var(--border)', borderRadius: 8 }}>
+                       <div className="text-muted" style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Approved</div>
+                       <div className="d-flex justify-content-between align-items-end mt-2">
+                          <h3 style={{ margin: 0, fontWeight: 700, color: 'var(--text-primary)' }}>{approvedReports}</h3>
+                          <div style={{ background: 'rgba(21, 128, 61, 0.15)', padding: 8, borderRadius: '50%' }}><CheckCircle size={16} color="var(--success)"/></div>
+                       </div>
+                    </div>
+                 </div>
+                 <div className="col-6 col-md-3">
+                    <div className="card p-3 h-100" style={{ border: '1px solid var(--border)', borderRadius: 8 }}>
+                       <div className="text-muted" style={{ fontSize: '0.8rem', fontWeight: 600, color: 'var(--text-secondary)' }}>Rejected</div>
+                       <div className="d-flex justify-content-between align-items-end mt-2">
+                          <h3 style={{ margin: 0, fontWeight: 700, color: 'var(--text-primary)' }}>{rejectedReports}</h3>
+                          <div style={{ background: 'rgba(185, 28, 28, 0.15)', padding: 8, borderRadius: '50%' }}><XCircle size={16} color="var(--danger)"/></div>
+                       </div>
+                    </div>
+                 </div>
+              </div>
+
+              {/* Filtering block */}
+              <div className="rp-filter-bar mb-4" style={{
+                display: 'flex', flexWrap: 'wrap', alignItems: 'center',
+                gap: '12px', padding: '12px 16px',
+                background: 'var(--bg-elevated)', border: '1px solid var(--border)',
+                borderRadius: 8
+              }}>
+                {/* Status pills */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: '0 0 auto' }}>
+                  {["all", "pending", "approved", "rejected"].map((s) => (
+                    <button
+                      key={s}
+                      onClick={() => setFilterStatus(s)}
+                      style={{
+                        padding: '5px 14px',
+                        borderRadius: 20,
+                        border: 'none',
+                        fontSize: '0.78rem',
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        transition: 'all 0.15s',
+                        background: filterStatus === s ? '#F56A6A' : 'var(--bg-surface)',
+                        color: filterStatus === s ? '#fff' : 'var(--text-secondary)',
+                      }}
+                    >
+                      {s === 'all' ? 'All' : s.charAt(0).toUpperCase() + s.slice(1)}
+                    </button>
+                  ))}
                 </div>
 
-                {expanded === r.id && (
-                  <div className="rp-details">
-                    <div className="rp-details-grid">
-                      {r.weather      && <div className="rp-detail-item"><span className="rp-dl">Weather</span><span>{r.weather}</span></div>}
-                      {r.workforce    && <div className="rp-detail-item"><span className="rp-dl">Workforce</span><span>{r.workforce}</span></div>}
-                      {r.materials    && <div className="rp-detail-item"><span className="rp-dl">Materials</span><span>{r.materials}</span></div>}
-                      {r.equipment    && <div className="rp-detail-item"><span className="rp-dl">Equipment</span><span>{r.equipment}</span></div>}
-                      {r.issues       && <div className="rp-detail-item"><span className="rp-dl">Issues</span><span style={{ color: "var(--danger)" }}>{r.issues}</span></div>}
-                      {r.gpsLat && r.gpsLng && (
-                        <div className="rp-detail-item">
-                          <span className="rp-dl"><MapPin size={12} /> GPS</span>
-                          <span>{r.gpsLat}, {r.gpsLng}</span>
+                {/* Divider */}
+                <div style={{ width: 1, height: 24, background: 'var(--border)', flexShrink: 0 }} />
+
+                {/* Project select */}
+                <select
+                  className="visily-input"
+                  style={{ flex: '1 1 160px', maxWidth: 220, padding: '7px 12px', fontSize: '0.83rem' }}
+                  value={filterProject}
+                  onChange={e => setFilterProject(e.target.value)}
+                >
+                  <option value="">All Projects</option>
+                  {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                </select>
+
+                {/* Search input */}
+                <input
+                  className="visily-input"
+                  style={{ flex: '1 1 180px', maxWidth: 260, padding: '7px 12px', fontSize: '0.83rem' }}
+                  placeholder="Search site name or date..."
+                  value={filterSearch}
+                  onChange={e => setFilterSearch(e.target.value)}
+                />
+              </div>
+
+              {/* Reports Table */}
+              <div className="card p-0 overflow-hidden" style={{ border: '1px solid var(--border)', borderRadius: 8, background: 'var(--bg-elevated)' }}>
+                 <div className="table-responsive">
+                    <table className="rp-table">
+                       <thead>
+                          <tr>
+                             <th>Date</th>
+                             <th>Project</th>
+                             <th>Submitted By</th>
+                             <th>Status</th>
+                             <th style={{ textAlign: 'center' }}>Action</th>
+                          </tr>
+                       </thead>
+                       <tbody>
+                          {filtered.length === 0 ? (
+                             <tr><td colSpan="5" style={{ textAlign:'center', padding:'32px', color:'var(--text-secondary)' }}>No reports found matching criteria.</td></tr>
+                          ) : (
+                             filtered.map(r => (
+                                <tr key={r.id} onClick={() => setActiveReport(r)} className={activeReport?.id === r.id ? 'rp-row-active' : ''}>
+                                   <td className="td-muted">{r.date || "—"}</td>
+                                   <td className="td-muted">{r.projectName || r.title || "—"}</td>
+                                   <td >{r.submittedBy || "—"}</td>
+                                   <td>
+                                      <span style={{ 
+                                         fontWeight: 700, 
+                                         color: r.status === 'approved' ? 'var(--success)' : r.status === 'rejected' ? 'var(--danger)' : 'var(--warning)' 
+                                      }}>
+                                         {r.status === 'approved' ? 'Approved' : r.status === 'rejected' ? 'Rejected' : 'Pending'}
+                                      </span>
+                                   </td>
+                                   <td style={{ textAlign: 'center' }}>
+                                      <span style={{ padding: '4px' }}>
+                                         <FileText size={16} color={activeReport?.id === r.id ? "var(--accent)" : "var(--text-secondary)"} />
+                                      </span>
+                                   </td>
+                                </tr>
+                             ))
+                          )}
+                       </tbody>
+                    </table>
+                 </div>
+              </div>
+           </div>
+
+           {/* Right Pane (Detail Monitor) */}
+           <div className="visily-notification-pane" style={{ width: "100%", flex: "0 0 440px", padding: "24px", borderRadius: "8px", border: "1px solid var(--border)", background: "var(--bg-elevated)", alignSelf: "stretch" }}>
+              {!activeReport ? (
+                 <div className="d-flex flex-column align-items-center justify-content-center h-100 text-muted" style={{ minHeight: '300px' }}>
+                    <FileText size={48} color="var(--border)" style={{ marginBottom: 16 }} />
+                    <p style={{ fontSize: '0.9rem', marginBottom: 0, color: 'var(--text-secondary)' }}>Select a report to view details</p>
+                 </div>
+              ) : (
+                 <div className="d-flex flex-column h-100">
+                    <h5 style={{ fontWeight: 700, margin: '0 0 16px 0', color: 'var(--text-primary)', lineHeight: 1.4 }}>
+                      {activeReport.title} {activeReport.projectName ? `- ${activeReport.projectName}` : ""}
+                    </h5>
+                    
+                    <div className="d-flex flex-wrap gap-3 mb-4" style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                       <div className="d-flex align-items-center gap-1"><Clock size={14}/> {activeReport.date || 'No Date'}</div>
+                       <div className="d-flex align-items-center gap-1" style={{ color: 'var(--text-primary)', fontWeight: 500 }}><MapPin size={14}/> {activeReport.projectName || 'Unspecified Location'}</div>
+                    </div>
+
+                    <div className="d-flex flex-wrap gap-4 mb-4" style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                       {activeReport.weather && <div><strong>Weather:</strong> {activeReport.weather}</div>}
+                       {activeReport.gpsLat && activeReport.gpsLng && <div><MapPin size={12} color="var(--accent)"/> <strong>GPS:</strong> {activeReport.gpsLat}, {activeReport.gpsLng}</div>}
+                    </div>
+
+                    {/* Progress Summary block */}
+                    {activeReport.description && (
+                       <div className="mb-4">
+                          <h6 style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: 8 }}>Progress Summary</h6>
+                          <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', padding: '16px', border: '1px solid var(--border)', borderRadius: 8, background: 'var(--bg-surface)', lineHeight: 1.6 }}>
+                             {activeReport.description}
+                          </div>
+                       </div>
+                    )}
+
+                    {/* Photos */}
+                    {activeReport.photoUrls?.length > 0 && (
+                       <div className="mb-4">
+                          <h6 style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: 8 }}>Uploaded Photos</h6>
+                          <div className="d-flex flex-wrap gap-2">
+                             {activeReport.photoUrls.map((url, idx) => (
+                                <a key={idx} href={url} target="_blank" rel="noreferrer">
+                                  <img src={url} alt={`Report ${idx}`} style={{ width: '100%', maxWidth: '140px', height: 100, objectFit: 'cover', borderRadius: 6, border: '1px solid var(--border)' }}/>
+                                </a>
+                             ))}
+                          </div>
+                       </div>
+                    )}
+                    
+                    {/* Rejection / Approval Comments area */}
+                    {canReview && activeReport.status === "pending" && (
+                       <div className="mt-auto pt-4" style={{ borderTop: '1px dashed var(--border)' }}>
+                          <h6 style={{ fontSize: '0.9rem', fontWeight: 700, color: 'var(--text-primary)', marginBottom: 8 }}>Review Comments</h6>
+                          <textarea 
+                             className="form-control mb-3" 
+                             rows="3" 
+                             placeholder="Add comments for rejection or approval..." 
+                             style={{ fontSize: '0.85rem', borderColor: 'var(--border)', background: 'var(--bg-surface)', color: 'var(--text-primary)' }}
+                             value={inlineComment}
+                             onChange={(e) => setInlineComment(e.target.value)}
+                          />
+                          <div className="d-flex gap-2 justify-content-end">
+                             <button className="btn btn-outline-secondary" style={{ fontSize: '0.85rem', padding: '8px 16px', fontWeight: 600, color: 'var(--text-primary)' }} onClick={() => handleSubmitReviewInline(activeReport, "reject")}>
+                                <XCircle size={14} className="me-1"/> Reject
+                             </button>
+                             <button className="visily-coral-btn" style={{ fontSize: '0.85rem', padding: '8px 16px' }} onClick={() => handleSubmitReviewInline(activeReport, "approve")}>
+                                <CheckCircle size={14} className="me-1"/> Approve
+                             </button>
+                          </div>
+                       </div>
+                    )}
+
+                    {activeReport.status !== "pending" && (
+                       <div className="mt-auto pt-4" style={{ borderTop: '1px dashed var(--border)' }}>
+                          <div className="d-flex align-items-center gap-2 mb-2">
+                             {activeReport.status === 'approved' ? <CheckCircle size={16} color="var(--success)"/> : <XCircle size={16} color="var(--danger)"/>}
+                             <h6 style={{ margin: 0, fontWeight: 700, color: activeReport.status === 'approved' ? 'var(--success)' : 'var(--danger)' }}>
+                                This report was {activeReport.status}.
+                             </h6>
+                          </div>
+                          {activeReport.reviewComment && (
+                             <div style={{ fontSize: '0.85rem', color: 'var(--text-primary)', padding: '12px', background: 'var(--bg-surface)', borderLeft: `3px solid ${activeReport.status === 'approved' ? 'var(--success)' : 'var(--danger)'}`, borderRadius: 4 }}>
+                                {activeReport.reviewComment}
+                             </div>
+                          )}
+                       </div>
+                    )}
+                 </div>
+              )}
+           </div>
+        </div>
+      </div>
+
+      {/* Submit Report Modal — Supervisor only (per flowchart: Fill form, Upload photos & sign) */}
+      {showModal && (
+        <div className="modal-overlay" onClick={() => setShowModal(false)} style={{backdropFilter: 'blur(4px)'}}>
+          <div className="sp-modal" style={{ maxWidth: 900, padding: 0, overflow: 'hidden', borderRadius: 12, border: '1px solid var(--border)' }} onClick={(e) => e.stopPropagation()}>
+            <div className="visily-split-modal">
+              {/* Left pane: Upload Status (dummy data to match design) */}
+              <div className="visily-modal-left d-none d-md-block" style={{ background: 'var(--bg-surface)' }}>
+                <h4 style={{fontWeight: 700, marginBottom: 8, color: 'var(--text-primary)'}}>Upload Status</h4>
+                <p style={{fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: 24}}>View the upload status for each report here.</p>
+                
+                <div className="visily-status-item">
+                  <h6 style={{fontWeight: 600, fontSize: '0.9rem', marginBottom: 4, color: 'var(--text-primary)'}}>Upload Successful</h6>
+                  <p style={{fontSize: '0.8rem', color: 'var(--text-secondary)', margin: 0}}>Your report was uploaded successfully.</p>
+                  <span style={{fontSize: '0.7rem', color: 'var(--text-muted)'}}>2 minutes ago</span>
+                </div>
+
+                <div className="visily-status-item">
+                  <h6 style={{fontWeight: 600, fontSize: '0.9rem', marginBottom: 4, color: 'var(--text-primary)'}}>Error Detected</h6>
+                  <p style={{fontSize: '0.8rem', color: 'var(--text-secondary)', margin: 0}}>There was an issue with file format.</p>
+                  <span style={{fontSize: '0.7rem', color: 'var(--text-muted)'}}>5 minutes ago</span>
+                </div>
+
+                <div className="visily-status-item">
+                  <h6 style={{fontWeight: 600, fontSize: '0.9rem', marginBottom: 4, color: 'var(--text-primary)'}}>Pending Approval</h6>
+                  <p style={{fontSize: '0.8rem', color: 'var(--text-secondary)', margin: 0}}>Your report is awaiting review.</p>
+                  <span style={{fontSize: '0.7rem', color: 'var(--text-muted)'}}>10 minutes ago</span>
+                </div>
+              </div>
+
+              {/* Right pane: Form */}
+              <div className="visily-modal-right" style={{ background: 'var(--bg-elevated)' }}>
+                <h4 style={{fontWeight: 700, marginBottom: 8, color: 'var(--text-primary)'}}>Site Daily Task Form</h4>
+                <p style={{fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: 24}}>Please fill in the details below to upload your daily report.</p>
+
+                <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+                  <input className="visily-input" required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Report Title" />
+                  
+                  {/* Additional form fields from original code mapped nicely */}
+                  <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12}}>
+                     <select className="visily-input" required value={form.projectId} onChange={(e) => setForm({ ...form, projectId: e.target.value })} style={{color: form.projectId ? 'inherit' : '#999'}}>
+                      <option value="" disabled hidden>Select project...</option>
+                      {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                    </select>
+                    <input type="text" onFocus={e => e.target.type='date'} onBlur={e => {if(!e.target.value) e.target.type='text'}} className="visily-input" required value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} placeholder="Date" />
+                  </div>
+
+                  <input className="visily-input" required value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Description" />
+
+                  <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12}}>
+                    <input className="visily-input" value={form.workforce} onChange={(e) => setForm({ ...form, workforce: e.target.value })} placeholder="Workforce (pax)" />
+                    <input className="visily-input" value={form.equipment} onChange={(e) => setForm({ ...form, equipment: e.target.value })} placeholder="Equipment" />
+                  </div>
+
+                  <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12}}>
+                    <input className="visily-input" value={form.materials} onChange={(e) => setForm({ ...form, materials: e.target.value })} placeholder="Materials Used" />
+                    <select className="visily-input" value={form.weather} onChange={(e) => setForm({ ...form, weather: e.target.value })} style={{color: form.weather ? 'inherit' : 'var(--text-muted)'}}>
+                      <option value="" disabled hidden>Weather</option>
+                      {["Sunny", "Cloudy", "Rainy", "Stormy", "Partly Cloudy"].map((w) => <option key={w}>{w}</option>)}
+                    </select>
+                  </div>
+                  
+                  <input className="visily-input" value={form.issues} onChange={(e) => setForm({ ...form, issues: e.target.value })} placeholder="Issues / Problems (if any)" />
+
+                  <div>
+                     <label style={{fontSize: '0.85rem', color: 'var(--text-primary)', marginBottom: 6, display: 'block', fontWeight: 600}}>Photos (Add 1 or more)</label>
+                     <button type="button" className="visily-full-btn" onClick={() => fileInputRef.current?.click()}>
+                        Add Photos
+                     </button>
+                     <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={handlePhotos} style={{ display: "none" }} />
+                     {photoPreviews.length > 0 && (
+                        <div className="rp-preview-grid mt-2">
+                          {photoPreviews.map((src, i) => (
+                            <div key={i} className="rp-preview-wrap">
+                              <img src={src} alt="" className="rp-preview-img" />
+                              <button type="button" className="rp-preview-remove" onClick={() => removePhoto(i)}><X size={10} /></button>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                  </div>
+
+                  <div>
+                    <label style={{fontSize: '0.85rem', color: 'var(--text-primary)', marginBottom: 6, display: 'block', fontWeight: 600}}>GPS Location</label>
+                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 12 }}>
+                      <input className="visily-input" value={form.gpsLat} onChange={(e) => setForm({ ...form, gpsLat: e.target.value })} placeholder="Latitude" />
+                      <input className="visily-input" value={form.gpsLng} onChange={(e) => setForm({ ...form, gpsLng: e.target.value })} placeholder="Longitude" />
+                      <button type="button" className="visily-coral-btn" onClick={() => {
+                        if (navigator.geolocation) {
+                          toast.loading("Getting location...", {id: "loc"});
+                          navigator.geolocation.getCurrentPosition((pos) => {
+                            setForm({...form, gpsLat: pos.coords.latitude.toFixed(6), gpsLng: pos.coords.longitude.toFixed(6)});
+                            toast.success("Location acquired", {id: "loc"});
+                          }, () => toast.error("Failed to get location", {id: "loc"}));
+                        }
+                      }}>
+                        Get Location
+                      </button>
+                    </div>
+                  </div>
+
+                  <div style={{ marginTop: 8 }}>
+                    <label style={{fontSize: '0.85rem', color: 'var(--text-primary)', marginBottom: 6, display: 'flex', justifyContent: 'space-between', fontWeight: 600}}>
+                      <span>Digital Signature</span>
+                      <button type="button" className="btn btn-sm btn-ghost" style={{ padding: '2px 8px', color: '#F56A6A' }} onClick={() => sigCanvas.current.clear()}>Clear</button>
+                    </label>
+                    <div style={{ border: '1px solid var(--border)', borderRadius: 6, background: '#fff', overflow: 'hidden' }}>
+                      <SignatureCanvas 
+                        ref={sigCanvas} 
+                        penColor="black"
+                        canvasProps={{width: 530, height: 100, className: 'sigCanvas'}}
+                      />
+                    </div>
+                  </div>
+
+                  <div style={{ display: "flex", gap: 12, marginTop: 16 }}>
+                    <button type="submit" className="visily-coral-btn" style={{padding: '10px 32px', fontSize: '0.95rem'}} disabled={loading}>
+                      {loading ? <Loader2 size={16} className="spin" /> : "Submit"}
+                    </button>
+                    <button type="button" className="visily-gray-btn" style={{padding: '10px 32px', fontSize: '0.95rem'}} onClick={() => setShowModal(false)}>Cancel</button>
+                  </div>
+                </form>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Review Comment Modal — Consultant approve/reject with comments (per flowchart) */}
+      {showCommentModal && commentTarget && (
+        <div className="modal-overlay" onClick={() => setShowCommentModal(false)}>
+          <div className="sp-modal" style={{ maxWidth: 480 }} onClick={(e) => e.stopPropagation()}>
+            <div className="sp-modal-title" style={{ display: "flex", alignItems: "center", gap: 10 }}>
+              <MessageSquare size={20} />
+              {commentAction === "approve" ? "Approve Report" : "Reject Report"}
+            </div>
+            <p style={{ fontSize: "0.85rem", color: "var(--text-secondary)", marginBottom: 16 }}>
+              <strong>Report:</strong> {commentTarget.title} <br />
+              <strong>Submitted by:</strong> {commentTarget.submittedBy}
+            </p>
+            <div className="form-group">
+              <label className="form-label">
+                {commentAction === "approve" ? "Comment (optional)" : "Reason for rejection"}
+              </label>
+              <textarea
+                className="form-control"
+                value={commentText}
+                onChange={(e) => setCommentText(e.target.value)}
+                placeholder={commentAction === "approve" ? "Add a comment for the supervisor..." : "Explain why this report is being rejected..."}
+                rows={3}
+                required={commentAction === "reject"}
+              />
+            </div>
+            <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 16 }}>
+              <button className="btn btn-secondary" onClick={() => setShowCommentModal(false)}>Cancel</button>
+              {commentAction === "approve" ? (
+                <button className="btn btn-sm" style={{ background: "rgba(63,185,80,0.15)", color: "var(--success)", border: "1px solid rgba(63,185,80,0.3)", padding: "8px 18px" }} onClick={handleSubmitReview}>
+                  <CheckCircle size={14} /> Approve
+                </button>
+              ) : (
+                <button className="btn btn-danger" onClick={handleSubmitReview}>
+                  <XCircle size={14} /> Reject
+                </button>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Project Export Selection Modal */}
+      {showExportModal && (
+        <div className="modal-overlay d-print-none" onClick={() => setShowExportModal(false)}>
+          <div className="sp-modal" style={{ maxWidth: 650 }} onClick={(e) => e.stopPropagation()}>
+            <div className="sp-modal-title d-flex justify-content-between align-items-center mb-0">
+              <span style={{ fontSize: '1.2rem' }}>Export Project Master Report</span>
+              <button className="btn btn-ghost btn-sm p-1" onClick={() => setShowExportModal(false)}>
+                <X size={18} />
+              </button>
+            </div>
+            <p className="small text-muted mt-2 mb-4">Select a project to export its comprehensive task roadmap and all associated daily reports.</p>
+            
+            <div className="db-project-list" style={{ maxHeight: '400px', overflowY: 'auto' }}>
+              {projects.length === 0 ? <p className="text-muted small text-center">No active projects to export.</p> : null}
+              {projects.map((p) => (
+                <div key={p.id} className="card p-3 mb-2" style={{ cursor: 'pointer', border: expandedExportProject === p.id ? '1px solid var(--accent)' : '1px solid var(--border)' }} onClick={() => setExpandedExportProject(expandedExportProject === p.id ? null : p.id)}>
+                  <div className="d-flex justify-content-between align-items-center">
+                    <div>
+                      <div className="fw-semibold" style={{ color: "var(--text-primary)" }}>{p.name}</div>
+                      <div className="small text-muted">{p.location || "No Location"} • {p.progress}% Progress</div>
+                    </div>
+                    <button className="btn btn-primary btn-sm" onClick={(e) => { e.stopPropagation(); setSelectedExportProject(p); setTimeout(() => window.print(), 200); }}>
+                      Select & Export
+                    </button>
+                  </div>
+
+                  {expandedExportProject === p.id && (
+                    <div className="mt-3 pt-3" style={{ borderTop: "1px dashed var(--border)", cursor: 'default' }} onClick={(e) => e.stopPropagation()}>
+                      <h6 className="mb-2" style={{ color: "var(--text-primary)", fontSize: "0.85rem" }}>Task List:</h6>
+                      {tasks.filter(t => t.projectId === p.id).length === 0 ? (
+                        <p className="small text-muted mb-0">No tasks currently appended to this project.</p>
+                      ) : (
+                        <div className="table-responsive">
+                          <table className="table table-sm" style={{ fontSize: "0.75rem" }}>
+                            <thead>
+                              <tr>
+                                <th>Task Title</th>
+                                <th>Assigned To</th>
+                                <th>Status</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {tasks.filter(t => t.projectId === p.id).map(t => (
+                                <tr key={t.id}>
+                                  <td>{t.title}</td>
+                                  <td>{t.assignedTo || "—"}</td>
+                                  <td>{t.status}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
                         </div>
                       )}
                     </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Invisible Printable Component triggered by window.print() */}
+      {selectedExportProject && (
+        <div className="printable-reports-export d-none">
+          <div style={{ padding: '32px', fontFamily: 'Arial, sans-serif', color: '#111' }}>
+
+            {/* Header */}
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 24, borderBottom: '2px solid #F56A6A', paddingBottom: 16 }}>
+              <div>
+                <div style={{ fontSize: 11, fontWeight: 700, color: '#F56A6A', letterSpacing: 2, marginBottom: 4 }}>MEC'S ENGINEERING SDN. BHD.</div>
+                <h1 style={{ fontSize: 22, margin: 0, fontWeight: 800 }}>{selectedExportProject.name}</h1>
+                <div style={{ fontSize: 12, color: '#555', marginTop: 4 }}>Project Progress Report</div>
+              </div>
+              <div style={{ textAlign: 'right', fontSize: 11, color: '#555' }}>
+                <div><strong>Exported:</strong> {new Date().toLocaleDateString('en-MY', { day:'2-digit', month:'long', year:'numeric' })}</div>
+                <div><strong>Location:</strong> {selectedExportProject.location || 'N/A'}</div>
+                <div><strong>Status:</strong> {selectedExportProject.status || 'Active'}</div>
+                <div><strong>Progress:</strong> {selectedExportProject.progress || 0}%</div>
+              </div>
+            </div>
+
+            {/* Section 1: Task Assignment Table */}
+            <h2 style={{ fontSize: 15, borderBottom: '1px solid #ddd', paddingBottom: 6, marginBottom: 12, color: '#111' }}>
+              Section 1 — Task Assignments &amp; Site In-Charge
+            </h2>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 11, marginBottom: 32 }}>
+              <thead>
+                <tr style={{ backgroundColor: '#f5f5f5' }}>
+                  <th style={{ padding: '8px 10px', border: '1px solid #ddd', textAlign: 'left' }}>Task Title</th>
+                  <th style={{ padding: '8px 10px', border: '1px solid #ddd', textAlign: 'left' }}>Site In-Charge (Supervisor)</th>
+                  <th style={{ padding: '8px 10px', border: '1px solid #ddd', textAlign: 'left' }}>Site</th>
+                  <th style={{ padding: '8px 10px', border: '1px solid #ddd', textAlign: 'left' }}>Due Date</th>
+                  <th style={{ padding: '8px 10px', border: '1px solid #ddd', textAlign: 'left' }}>Priority</th>
+                  <th style={{ padding: '8px 10px', border: '1px solid #ddd', textAlign: 'left' }}>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {tasks.filter(t => t.projectId === selectedExportProject.id).length === 0 ? (
+                  <tr><td colSpan="6" style={{ padding: '10px', border: '1px solid #ddd', textAlign: 'center', color: '#888' }}>No tasks assigned to this project.</td></tr>
+                ) : (
+                  tasks.filter(t => t.projectId === selectedExportProject.id).map((t, i) => (
+                    <tr key={t.id} style={{ backgroundColor: i % 2 === 0 ? '#fff' : '#fafafa' }}>
+                      <td style={{ padding: '8px 10px', border: '1px solid #ddd', fontWeight: 600 }}>{t.title}</td>
+                      <td style={{ padding: '8px 10px', border: '1px solid #ddd' }}>{t.assignedTo || '—'}</td>
+                      <td style={{ padding: '8px 10px', border: '1px solid #ddd' }}>{t.site || '—'}</td>
+                      <td style={{ padding: '8px 10px', border: '1px solid #ddd' }}>{t.dueDate || '—'}</td>
+                      <td style={{ padding: '8px 10px', border: '1px solid #ddd', textTransform: 'capitalize' }}>{t.priority || 'medium'}</td>
+                      <td style={{ padding: '8px 10px', border: '1px solid #ddd' }}>
+                        <span style={{
+                          background: t.status === 'done' ? '#d1fae5' : t.status === 'inprogress' ? '#dbeafe' : '#f3f4f6',
+                          color: t.status === 'done' ? '#065f46' : t.status === 'inprogress' ? '#1e40af' : '#374151',
+                          padding: '2px 8px', borderRadius: 10, fontSize: 10, fontWeight: 700, textTransform: 'uppercase'
+                        }}>
+                          {t.status === 'inprogress' ? 'In Progress' : t.status === 'todo' ? 'To Do' : 'Done'}
+                        </span>
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+
+            {/* Section 2: Daily Reports with Evidence */}
+            <h2 style={{ fontSize: 15, borderBottom: '1px solid #ddd', paddingBottom: 6, marginBottom: 16, color: '#111' }}>
+              Section 2 — Daily Progress Reports &amp; Evidence
+            </h2>
+            {reports.filter(r => r.projectId === selectedExportProject.id).length === 0 ? (
+              <p style={{ fontSize: 12, color: '#888' }}>No daily reports filed for this project.</p>
+            ) : (
+              reports.filter(r => r.projectId === selectedExportProject.id).map((r, index) => (
+                <div key={r.id} style={{ marginBottom: 28, border: '1px solid #ddd', borderRadius: 6, overflow: 'hidden', pageBreakInside: 'avoid' }}>
+                  {/* Report header bar */}
+                  <div style={{ background: '#f8f8f8', padding: '10px 16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #ddd' }}>
+                    <div>
+                      <span style={{ fontWeight: 700, fontSize: 13 }}>Report #{index + 1}: {r.title}</span>
+                      <span style={{ marginLeft: 12, fontSize: 11, color: '#555' }}>Submitted by: <strong>{r.submittedBy}</strong></span>
+                    </div>
+                    <span style={{
+                      fontSize: 10, fontWeight: 800, padding: '3px 10px', borderRadius: 4,
+                      background: r.status === 'approved' ? '#d1fae5' : r.status === 'rejected' ? '#fee2e2' : '#fef3c7',
+                      color: r.status === 'approved' ? '#065f46' : r.status === 'rejected' ? '#991b1b' : '#92400e',
+                      textTransform: 'uppercase'
+                    }}>{r.status}</span>
+                  </div>
+
+                  <div style={{ padding: '12px 16px' }}>
+                    {/* Report meta */}
+                    <div style={{ display: 'flex', gap: 24, fontSize: 11, color: '#444', marginBottom: 10, flexWrap: 'wrap' }}>
+                      <span><strong>Date:</strong> {r.date || '—'}</span>
+                      <span><strong>Weather:</strong> {r.weather || '—'}</span>
+                      <span><strong>Workforce:</strong> {r.workforce || '—'} pax</span>
+                      <span><strong>Equipment:</strong> {r.equipment || '—'}</span>
+                      <span><strong>Materials:</strong> {r.materials || '—'}</span>
+                      {r.gpsLat && r.gpsLng && <span><strong>GPS:</strong> {r.gpsLat}, {r.gpsLng}</span>}
+                    </div>
+
+                    {/* Description */}
                     {r.description && (
-                      <div className="rp-description">
-                        <span className="rp-dl">Progress Description</span>
-                        <p>{r.description}</p>
+                      <div style={{ fontSize: 11, marginBottom: 10 }}>
+                        <strong>Progress Description:</strong>
+                        <div style={{ marginTop: 4, padding: '8px 10px', background: '#f9f9f9', borderLeft: '3px solid #F56A6A', borderRadius: 3, lineHeight: 1.6 }}>{r.description}</div>
                       </div>
                     )}
+
+                    {/* Issues */}
+                    {r.issues && (
+                      <div style={{ fontSize: 11, marginBottom: 10, padding: '6px 10px', background: '#fff8f0', borderLeft: '3px solid #f59e0b', borderRadius: 3 }}>
+                        <strong>Issues/Problems:</strong> {r.issues}
+                      </div>
+                    )}
+
+                    {/* Consultant comment */}
+                    {r.reviewComment && (
+                      <div style={{ fontSize: 11, marginBottom: 10, padding: '6px 10px', background: '#f0f7ff', borderLeft: '3px solid #3b82f6', borderRadius: 3 }}>
+                        <strong>Consultant Feedback:</strong> {r.reviewComment}
+                        {r.reviewedBy && <span style={{ color: '#555' }}> — {r.reviewedBy}</span>}
+                      </div>
+                    )}
+
+                    {/* Photo Evidence */}
                     {r.photoUrls?.length > 0 && (
-                      <div className="rp-photos">
-                        <span className="rp-dl">Site Photos</span>
-                        <div className="rp-photo-grid">
-                          {r.photoUrls.map((url, i) => (
-                            <a key={i} href={url} target="_blank" rel="noreferrer">
-                              <img src={url} alt={`site-${i}`} className="rp-photo" />
-                            </a>
+                      <div style={{ marginTop: 10 }}>
+                        <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 8 }}>
+                          Photo Evidence ({r.photoUrls.length} photo{r.photoUrls.length > 1 ? 's' : ''})
+                        </div>
+                        <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                          {r.photoUrls.map((url, idx) => (
+                            <img
+                              key={idx}
+                              src={url}
+                              alt={`Evidence ${idx + 1}`}
+                              style={{ width: 130, height: 100, objectFit: 'cover', border: '1px solid #ddd', borderRadius: 4 }}
+                            />
                           ))}
                         </div>
                       </div>
                     )}
-                    {r.signature && (
-                      <div className="rp-description mt-3">
-                        <span className="rp-dl">Digital Signature (Canvas API)</span>
-                        <div>
-                          <img src={r.signature} alt="Supervisor Signature" style={{ height: 80, borderBottom: '1px solid var(--border)', paddingBottom: 5 }} />
-                          <div style={{ fontSize: '0.75rem', color: "var(--text-secondary)", marginTop: 4 }}>Signed by: {r.submittedBy}</div>
-                        </div>
-                      </div>
-                    )}
-                    {r.reviewedBy && (
-                      <p style={{ fontSize: "0.78rem", color: "var(--text-secondary)", marginTop: 8 }}>
-                        Reviewed by {r.reviewedBy}{r.rejectedReason ? ` — ${r.rejectedReason}` : ""}
-                      </p>
+                    {(!r.photoUrls || r.photoUrls.length === 0) && (
+                      <div style={{ fontSize: 11, color: '#aaa', fontStyle: 'italic', marginTop: 6 }}>No photo evidence attached.</div>
                     )}
                   </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+                </div>
+              ))
+            )}
 
-      {/* Submit Report Modal */}
-      {showModal && (
-        <div className="modal-overlay" onClick={() => setShowModal(false)}>
-          <div className="modal" style={{ maxWidth: 600 }} onClick={(e) => e.stopPropagation()}>
-            <div className="modal-title">Submit Daily Site Report</div>
-            <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 14 }}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                <div className="form-group">
-                  <label className="form-label">Report Title</label>
-                  <input className="form-control" required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Daily Log – Block A" />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Date</label>
-                  <input type="date" className="form-control" required value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
-                </div>
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
-                <div className="form-group">
-                  <label className="form-label">Project</label>
-                  <select className="form-control" required value={form.projectId} onChange={(e) => setForm({ ...form, projectId: e.target.value })}>
-                    <option value="">Select project...</option>
-                    {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Weather</label>
-                  <select className="form-control" value={form.weather} onChange={(e) => setForm({ ...form, weather: e.target.value })}>
-                    <option value="">Select...</option>
-                    {["Sunny", "Cloudy", "Rainy", "Stormy", "Partly Cloudy"].map((w) => <option key={w}>{w}</option>)}
-                  </select>
-                </div>
-              </div>
-              <div className="form-group">
-                <label className="form-label">Progress Description</label>
-                <textarea className="form-control" required value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Describe what was done today..." />
-              </div>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: 12 }}>
-                <div className="form-group">
-                  <label className="form-label">Workforce (pax)</label>
-                  <input className="form-control" value={form.workforce} onChange={(e) => setForm({ ...form, workforce: e.target.value })} placeholder="15" />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Materials Used</label>
-                  <input className="form-control" value={form.materials} onChange={(e) => setForm({ ...form, materials: e.target.value })} placeholder="Cement, Steel..." />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Equipment</label>
-                  <input className="form-control" value={form.equipment} onChange={(e) => setForm({ ...form, equipment: e.target.value })} placeholder="Excavator, Crane..." />
-                </div>
-              </div>
-              <div className="form-group">
-                <label className="form-label">Issues / Problems (if any)</label>
-                <input className="form-control" value={form.issues} onChange={(e) => setForm({ ...form, issues: e.target.value })} placeholder="Leave blank if no issues" />
-              </div>
-
-              {/* Photo upload */}
-              <div className="form-group">
-                <label className="form-label">Site Photos</label>
-                <div className="rp-upload-area" onClick={() => fileInputRef.current?.click()}>
-                  <Camera size={22} />
-                  <span>Click to add photos</span>
-                  <input ref={fileInputRef} type="file" accept="image/*" multiple onChange={handlePhotos} style={{ display: "none" }} />
-                </div>
-                {photoPreviews.length > 0 && (
-                  <div className="rp-preview-grid">
-                    {photoPreviews.map((src, i) => (
-                      <div key={i} className="rp-preview-wrap">
-                        <img src={src} alt="" className="rp-preview-img" />
-                        <button type="button" className="rp-preview-remove" onClick={() => removePhoto(i)}><X size={10} /></button>
-                      </div>
-                    ))}
-                  </div>
-                )}
-              </div>
-
-              {/* Digital Signature using Canvas API */}
-              <div className="form-group mt-2">
-                <label className="form-label d-flex justify-content-between align-items-center">
-                  <span>Digital Signature (Canvas API)</span>
-                  <button type="button" className="btn btn-sm btn-ghost" style={{ padding: '2px 8px' }} onClick={() => sigCanvas.current.clear()}>Clear</button>
-                </label>
-                <div style={{ border: '1px solid var(--border)', borderRadius: 'var(--radius-md)', background: '#fff', overflow: 'hidden' }}>
-                  <SignatureCanvas 
-                    ref={sigCanvas} 
-                    penColor="black"
-                    canvasProps={{width: 550, height: 150, className: 'sigCanvas'}}
-                  />
-                </div>
-              </div>
-
-              <div style={{ display: "flex", gap: 10, justifyContent: "flex-end", marginTop: 4 }}>
-                <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)}>Cancel</button>
-                <button type="submit" className="btn btn-primary" disabled={loading}>
-                  {loading ? <Loader2 size={16} className="spin" /> : <Plus size={16} />} Submit Report
-                </button>
-              </div>
-            </form>
+            {/* Footer */}
+            <div style={{ marginTop: 40, paddingTop: 12, borderTop: '1px solid #ddd', display: 'flex', justifyContent: 'space-between', fontSize: 10, color: '#888' }}>
+              <span>SPRS — Site Progress Reporting System | MEC's Engineering Sdn. Bhd.</span>
+              <span>Generated: {new Date().toLocaleString()}</span>
+            </div>
           </div>
         </div>
       )}

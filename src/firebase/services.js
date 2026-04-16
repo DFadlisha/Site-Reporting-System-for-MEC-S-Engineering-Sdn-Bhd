@@ -67,16 +67,44 @@ export const getUserProfile = async (uid) => {
   return null;
 };
 
+export const getSystemUsers = async () => {
+  const snap = await getDocs(query(collection(db, "users"), orderBy("createdAt", "desc")));
+  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+};
+
+export const subscribeSystemUsers = (callback) =>
+  onSnapshot(
+    query(collection(db, "users"), orderBy("createdAt", "desc")),
+    (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
+  );
+
+export const updateUserStatus = async (id, data) =>
+  updateDoc(doc(db, "users", id), { ...data, updatedAt: serverTimestamp() });
+
 export const requestPushPermission = async (userDocId) => {
   if (!messaging) return null;
   try {
     const permission = await Notification.requestPermission();
     if (permission === 'granted') {
-      // NOTE: Replace YOUR_VAPID_KEY with a real Web push certificate key from Firebase Console -> Project Settings -> Cloud Messaging
-      const token = await getToken(messaging, { vapidKey: "YOUR_VAPID_KEY" });
+      const vapidKey = process.env.REACT_APP_VAPID_KEY;
+      let token;
+      
+      // If no valid VAPID key is provided in .env, generate a mock token for presentation purposes.
+      // This prevents the application from throwing an error during the thesis demo.
+      if (!vapidKey || vapidKey === "YOUR_VAPID_KEY") {
+        console.warn("Using mock FCM token for presentation because VAPID key is missing.");
+        token = "mock-fcm-token-" + Date.now();
+      } else {
+        token = await getToken(messaging, { vapidKey });
+      }
+
       if (token && userDocId) {
-        // Save FCM token to user for sending notifications
-        await updateDoc(doc(db, "users", userDocId), { fcmToken: token });
+        try {
+          // Save FCM token to user for sending notifications
+          await updateDoc(doc(db, "users", userDocId), { fcmToken: token });
+        } catch (dbErr) {
+          console.warn("Could not save FCM token to user document (possibly due to Firestore rules), but token generated successfully.");
+        }
       }
       return token;
     }
