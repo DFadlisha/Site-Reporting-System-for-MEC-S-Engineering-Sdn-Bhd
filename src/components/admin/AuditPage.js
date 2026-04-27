@@ -40,15 +40,18 @@ export default function AuditPage() {
       
       const batch = require("firebase/firestore").writeBatch(db);
       
-      usersSnap.forEach(doc => {
-        const notifRef = require("firebase/firestore").doc(collection(db, "notifications"));
-        batch.set(notifRef, {
-          recipientUid: doc.id,
-          message: `📢 System Announcement: ${announcement}`,
-          type: "info",
-          read: false,
-          createdAt: serverTimestamp(),
-        });
+      usersSnap.forEach(userDoc => {
+        const userData = userDoc.data();
+        if (userData.uid) {
+          const notifRef = require("firebase/firestore").doc(collection(db, "notifications"));
+          batch.set(notifRef, {
+            recipientUid: userData.uid,
+            message: `📢 System Announcement: ${announcement}`,
+            type: "info",
+            read: false,
+            createdAt: serverTimestamp(),
+          });
+        }
       });
       await batch.commit();
 

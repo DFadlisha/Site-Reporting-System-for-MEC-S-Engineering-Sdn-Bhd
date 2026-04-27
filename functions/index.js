@@ -146,6 +146,29 @@ exports.onUserDeleted = functions.auth
     return batch.commit();
   });
 
+// Notify user when their account is approved
+exports.onUserStatusChanged = functions.firestore
+  .document("users/{docId}")
+  .onUpdate(async (change) => {
+    const before = change.before.data();
+    const after = change.after.data();
+
+    // Check if status changed from pending to approved
+    if (before.status === "pending" && after.status === "approved") {
+      console.log(`[EMAIL SIMULATION] Sending approval email to: ${after.email}`);
+      
+      // Create an in-app notification
+      return db.collection("notifications").add({
+        recipientUid: after.uid,
+        message: "Your account has been approved! You can now log in and access the system.",
+        type: "success",
+        read: false,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    }
+    return null;
+  });
+
 // ─── 4. DATA SEEDING (CALLABLE) ───────────────────────────────
 
 // Seed demo data for presentations

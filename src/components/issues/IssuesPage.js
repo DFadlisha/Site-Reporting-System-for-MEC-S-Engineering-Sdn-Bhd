@@ -33,6 +33,10 @@ export default function IssuesPage() {
   const [resolveComment, setResolveComment] = useState("");
   const [resolveStatus, setResolveStatus] = useState("resolved");
 
+  // View details modal
+  const [showDetailsModal, setShowDetailsModal] = useState(false);
+  const [detailsTarget, setDetailsTarget] = useState(null);
+
   useEffect(() => {
     const u1 = subscribeIssues(setIssues);
     const u2 = subscribeProjects(setProjects);
@@ -49,6 +53,7 @@ export default function IssuesPage() {
         ...form,
         projectName: project?.name || "",
         reportedBy: profile?.name,
+        reportedByUid: profile?.uid || "", // Save UID for notifications
         reportedByRole: profile?.role,
       });
       toast.success("Issue reported successfully");
@@ -65,6 +70,11 @@ export default function IssuesPage() {
     setResolveComment("");
     setResolveStatus("resolved");
     setShowResolveModal(true);
+  };
+
+  const openDetailsModal = (issue) => {
+    setDetailsTarget(issue);
+    setShowDetailsModal(true);
   };
 
   const handleResolve = async () => {
@@ -230,8 +240,8 @@ export default function IssuesPage() {
                           </div>
                         )}
                         <div className="d-flex justify-content-between align-items-center">
-                          <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--accent)', cursor: 'pointer' }} onClick={() => canResolveIssue ? openResolveModal(issue) : null}>
-                            View Details & Timeline {canResolveIssue && "(Update Action)"}
+                          <span style={{ fontSize: '0.85rem', fontWeight: 700, color: 'var(--accent)', cursor: 'pointer' }} onClick={() => openDetailsModal(issue)}>
+                            View Details {canResolveIssue && "& Update Action"}
                           </span>
                           {canResolveIssue && issue.status !== 'resolved' && (
                              <button className="visily-coral-btn" style={{padding: '6px 16px', fontSize: '0.85rem'}} onClick={() => openResolveModal(issue)}>Resolve</button>
@@ -285,6 +295,67 @@ export default function IssuesPage() {
                 <CheckCircle size={16} style={{marginRight: 6}} /> Confirm Update
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* View Details Modal — For All Roles */}
+      {showDetailsModal && detailsTarget && (
+        <div className="modal-overlay" onClick={() => setShowDetailsModal(false)}>
+          <div className="sp-modal" style={{ maxWidth: 500, borderRadius: 8, padding: 32 }} onClick={(e) => e.stopPropagation()}>
+            <div className="d-flex justify-content-between align-items-center mb-4">
+              <h4 style={{ fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>Issue Details</h4>
+              <button className="btn btn-ghost p-1" onClick={() => setShowDetailsModal(false)}>✕</button>
+            </div>
+            
+            <div style={{ background: 'var(--bg-elevated)', border: '1px solid var(--border)', borderRadius: 8, padding: 20, marginBottom: 20 }}>
+              <h5 style={{ fontWeight: 700, color: 'var(--text-primary)', marginBottom: 8 }}>{detailsTarget.title}</h5>
+              <div style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: 16 }}>
+                <strong>Project:</strong> {detailsTarget.projectName || '—'} <br/>
+                <strong>Location:</strong> {detailsTarget.location || '—'} <br/>
+                <strong>Reported By:</strong> {detailsTarget.reportedBy || 'Unknown'}
+              </div>
+
+              <div style={{ marginBottom: 16 }}>
+                <span style={{ fontSize: '0.75rem', fontWeight: 600, padding: '4px 10px', borderRadius: 12, background: getPriorityColor(detailsTarget.priority).bg, color: getPriorityColor(detailsTarget.priority).text, marginRight: 8 }}>
+                  {detailsTarget.priority ? detailsTarget.priority.charAt(0).toUpperCase() + detailsTarget.priority.slice(1) : 'Medium'} Priority
+                </span>
+                <span style={{ fontSize: '0.75rem', fontWeight: 600, padding: '4px 10px', borderRadius: 12, background: getStatusColor(detailsTarget.status).bg, color: getStatusColor(detailsTarget.status).text }}>
+                  {detailsTarget.status === 'open' ? 'New / Open' : detailsTarget.status === 'inprogress' ? 'In Progress' : detailsTarget.status.charAt(0).toUpperCase() + detailsTarget.status.slice(1)}
+                </span>
+              </div>
+
+              <div style={{ fontSize: '0.9rem', color: 'var(--text-primary)', lineHeight: 1.6, padding: '12px', background: 'var(--bg-surface)', borderRadius: 6, border: '1px solid var(--border)' }}>
+                <strong>Description:</strong><br/>
+                {detailsTarget.description}
+              </div>
+            </div>
+
+            {detailsTarget.resolveComment && (
+              <div style={{ background: 'rgba(21, 128, 61, 0.05)', border: '1px solid rgba(21, 128, 61, 0.2)', borderRadius: 8, padding: 16 }}>
+                <h6 style={{ fontWeight: 700, color: 'var(--success)', marginBottom: 6 }}>Resolution / Update Note</h6>
+                <p style={{ fontSize: '0.85rem', margin: 0, color: 'var(--text-primary)' }}>{detailsTarget.resolveComment}</p>
+                {detailsTarget.resolvedBy && (
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: 8 }}>
+                    — Updated by {detailsTarget.resolvedBy}
+                  </div>
+                )}
+              </div>
+            )}
+
+            {canResolveIssue && detailsTarget.status !== 'resolved' && (
+              <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: 24 }}>
+                <button 
+                  className="visily-coral-btn" 
+                  onClick={() => {
+                    setShowDetailsModal(false);
+                    openResolveModal(detailsTarget);
+                  }}
+                >
+                  Update / Resolve Issue
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}

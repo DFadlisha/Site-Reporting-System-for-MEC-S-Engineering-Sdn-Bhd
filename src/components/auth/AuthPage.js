@@ -15,7 +15,7 @@ import {
   Briefcase,
   AlertCircle,
 } from "lucide-react";
-import { registerUser, loginUser } from "../../firebase/services";
+import { registerUser, loginUser, getUserProfile, logoutUser } from "../../firebase/services";
 import toast from "react-hot-toast";
 import "./AuthPage.css";
 
@@ -103,12 +103,23 @@ export default function AuthPage() {
     try {
       if (mode === "register") {
         await registerUser(form.name, form.email, form.password, form.role);
-        toast.success("Account created! Welcome aboard.");
+        toast.success("Registration successful! Please wait for administrator approval.");
+        setMode("login");
       } else {
-        await loginUser(form.email, form.password);
+        const userCred = await loginUser(form.email, form.password);
+        const profile = await getUserProfile(userCred.user.uid);
+        
+        // Only block if status is explicitly "pending"
+        if (profile && profile.status === "pending") {
+          await logoutUser();
+          toast.error("Your account is pending approval. Please contact an administrator.");
+          setLoading(false);
+          return;
+        }
+        
         toast.success("Welcome back!");
+        navigate("/dashboard");
       }
-      navigate("/dashboard");
     } catch (err) {
       toast.error(parseFirebaseError(err));
     } finally {

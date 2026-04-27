@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { Users, Shield, Calendar, Edit2, ShieldAlert } from "lucide-react";
 import Topbar from "../shared/Topbar";
-import { subscribeSystemUsers, updateUserStatus } from "../../firebase/services";
+import { subscribeSystemUsers, updateUserStatus, approveUser } from "../../firebase/services";
 import toast from "react-hot-toast";
 import { format } from "date-fns";
 import "./UsersPage.css";
@@ -27,6 +27,15 @@ export default function UsersPage() {
       console.error(err);
     }
   };
+  const handleApprove = async (userId) => {
+    try {
+      await approveUser(userId);
+      toast.success("User approved successfully");
+    } catch (err) {
+      toast.error("Failed to approve user");
+      console.error(err);
+    }
+  };
 
   const getRoleBadgeClass = (role) => {
     switch (role?.toLowerCase()) {
@@ -35,6 +44,15 @@ export default function UsersPage() {
       case "supervisor": return "user-role-supervisor";
       case "consultant": return "user-role-consultant";
       default: return "user-role-supervisor";
+    }
+  };
+
+  const getStatusBadgeClass = (status) => {
+    switch (status?.toLowerCase()) {
+      case "approved": return "badge-success";
+      case "pending": return "badge-warning";
+      case "rejected": return "badge-danger";
+      default: return "badge-secondary";
     }
   };
 
@@ -79,12 +97,25 @@ export default function UsersPage() {
                       </div>
                     </div>
 
-                    <div className="user-actions d-flex align-items-center justify-content-between mt-auto pt-3">
-                       <span className={`user-role-badge ${getRoleBadgeClass(user.role)}`}>
-                        {user.role || "worker"}
-                      </span>
+                      <div className="d-flex align-items-center gap-2">
+                        <span className={`user-role-badge ${getRoleBadgeClass(user.role)}`}>
+                          {user.role || "worker"}
+                        </span>
+                        <span className={`status-badge ${getStatusBadgeClass(user.status)}`}>
+                          {user.status || "approved"}
+                        </span>
+                      </div>
 
-                      <div className="dropdown">
+                      <div className="d-flex align-items-center gap-2">
+                        {user.status === "pending" && (
+                          <button 
+                            className="btn btn-sm btn-success" 
+                            onClick={() => handleApprove(user.id)}
+                          >
+                            Approve
+                          </button>
+                        )}
+                        <div className="dropdown">
                         <button className="btn btn-sm btn-outline-secondary d-flex align-items-center gap-1 dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false">
                           <Edit2 size={14} /> Change Role
                         </button>

@@ -3,7 +3,7 @@ import React, { useEffect, useState } from "react";
 import {
   FolderOpen, CheckSquare, FileText,
   AlertTriangle, TrendingUp, CheckCircle, Bell, Database, X, Download,
-  ClipboardList, ArrowRight, Eye, PlusCircle, MessageSquare, XCircle
+  ClipboardList, ArrowRight, Eye, PlusCircle, MessageSquare, XCircle, Clock
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import Topbar from "../shared/Topbar";
@@ -363,48 +363,122 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* Recent projects — visible to Consultant & Admin */}
-        {(isConsultant || isAdmin) && (
-          <div className="card p-4">
-            <div className="db-chart-title fw-bold mb-3 d-flex align-items-center gap-2">
-              <FolderOpen size={18} /> Recent Projects
-            </div>
-            {projects.length === 0 ? (
-              <p className="text-muted small">
-                No projects yet. Create one from the Task Tracking page.
-              </p>
-            ) : (
-              <div className="db-project-list">
-                {projects.slice(0, 5).map((p) => (
-                  <div key={p.id} className="d-flex flex-column flex-md-row align-items-md-center justify-content-between py-3 border-bottom gap-3 db-clickable-project" onClick={() => setSelectedExportProject(p)}>
-                    <div className="d-flex align-items-center gap-3">
-                      <div className="db-project-icon text-primary rounded" style={{ background: `${themeColors.info}22`, padding: '10px' }}>
-                        <FolderOpen size={18} style={{ color: themeColors.info }} />
-                      </div>
-                      <div>
-                        <div className="fw-semibold" style={{ color: "var(--text-primary)" }}>{p.name}</div>
-                        <div className="small" style={{ color: "var(--text-secondary)" }}>{p.location || "—"}</div>
+        {/* Project Overview — visible to all roles */}
+        <div className="card p-4 mb-4">
+          <div className="db-chart-title fw-bold mb-3 d-flex align-items-center gap-2">
+            <FolderOpen size={18} /> Project Overview
+          </div>
+          {projects.length === 0 ? (
+            <p className="text-muted small">No projects yet. Create one from the Task Tracking page.</p>
+          ) : (
+            <div className="table-responsive">
+              {/* Column headers */}
+              <div className="d-none d-md-flex px-2 pb-2 mb-1" style={{ borderBottom: `1px solid ${themeColors.border}`, fontSize: '0.72rem', fontWeight: 700, color: themeColors.textSecondary, textTransform: 'uppercase', letterSpacing: 1 }}>
+                <div style={{ flex: '1 1 200px' }}>Project</div>
+                <div style={{ flex: '0 0 120px', textAlign: 'center' }}>Start Date</div>
+                <div style={{ flex: '0 0 140px', textAlign: 'center' }}>Due Date</div>
+                <div style={{ flex: '0 0 140px', textAlign: 'center' }}>Progress</div>
+                <div style={{ flex: '0 0 90px', textAlign: 'center' }}>Status</div>
+              </div>
+
+              {projects.map((p) => {
+                // Due date urgency logic
+                let dueBg = 'transparent';
+                let dueColor = themeColors.textSecondary;
+                let dueLabel = p.endDate || '—';
+                let dueIcon = null;
+                if (p.endDate) {
+                  const today = new Date();
+                  today.setHours(0, 0, 0, 0);
+                  const due = new Date(p.endDate);
+                  const diffDays = Math.ceil((due - today) / (1000 * 60 * 60 * 24));
+                  if (p.progress === 100 || p.status === 'completed') {
+                    dueBg = `${themeColors.success}18`;
+                    dueColor = themeColors.success;
+                    dueLabel = p.endDate;
+                  } else if (diffDays < 0) {
+                    dueBg = `${themeColors.danger}18`;
+                    dueColor = themeColors.danger;
+                    dueLabel = `${p.endDate} (Overdue)`;
+                  } else if (diffDays <= 7) {
+                    dueBg = `${themeColors.warning}18`;
+                    dueColor = themeColors.warning;
+                    dueLabel = `${p.endDate} (${diffDays}d left)`;
+                  } else {
+                    dueColor = themeColors.textSecondary;
+                    dueLabel = p.endDate;
+                  }
+                }
+
+                // Progress bar colour
+                const progressColor = p.progress === 100 ? themeColors.success : p.progress >= 60 ? themeColors.info : themeColors.warning;
+
+                return (
+                  <div
+                    key={p.id}
+                    className="d-flex flex-column flex-md-row align-items-md-center db-clickable-project py-3 px-2 gap-3"
+                    style={{ borderBottom: `1px solid ${themeColors.border}`, cursor: 'pointer' }}
+                    onClick={() => setSelectedExportProject(p)}
+                  >
+                    {/* Project name + location */}
+                    <div style={{ flex: '1 1 200px', minWidth: 0 }}>
+                      <div className="fw-semibold" style={{ color: 'var(--text-primary)', fontSize: '0.9rem' }}>{p.name}</div>
+                      <div className="small d-flex align-items-center gap-1 mt-1" style={{ color: 'var(--text-secondary)' }}>
+                        <Clock size={11} /> {p.location || '—'}
                       </div>
                     </div>
-                    
-                    <div className="d-flex align-items-center gap-4">
-                      <div className="d-none d-md-flex align-items-center gap-2">
-                        <div className="progress" style={{ width: "120px", height: "8px", borderRadius: "10px" }}>
-                          <div
-                            className="progress-bar"
-                            style={{ width: `${p.progress || 0}%`, background: themeColors.info, borderRadius: "10px" }}
-                          />
+
+                    {/* Start Date */}
+                    <div style={{ flex: '0 0 120px', textAlign: 'center' }}>
+                      <span className="small" style={{ color: themeColors.textSecondary }}>
+                        {p.startDate || '—'}
+                      </span>
+                    </div>
+
+                    {/* Due Date — prominent badge */}
+                    <div style={{ flex: '0 0 140px', textAlign: 'center' }}>
+                      {p.endDate ? (
+                        <span style={{
+                          display: 'inline-flex', alignItems: 'center', gap: 4,
+                          padding: '4px 10px', borderRadius: 20, fontSize: '0.78rem', fontWeight: 700,
+                          background: dueBg, color: dueColor,
+                          border: `1px solid ${dueColor}44`,
+                        }}>
+                          <Clock size={11} /> {dueLabel}
+                        </span>
+                      ) : (
+                        <span className="small text-muted">Not set</span>
+                      )}
+                    </div>
+
+                    {/* Progress bar */}
+                    <div style={{ flex: '0 0 140px' }}>
+                      <div className="d-flex align-items-center gap-2">
+                        <div style={{ flex: 1, height: 8, background: `${progressColor}22`, borderRadius: 99, overflow: 'hidden' }}>
+                          <div style={{ width: `${p.progress || 0}%`, height: '100%', background: progressColor, borderRadius: 99, transition: 'width 0.4s ease' }} />
                         </div>
-                        <span className="small fw-semibold" style={{ color: "var(--text-secondary)" }}>{p.progress || 0}%</span>
+                        <span style={{ fontSize: '0.75rem', fontWeight: 700, color: progressColor, minWidth: 32, textAlign: 'right' }}>{p.progress || 0}%</span>
                       </div>
-                      <span className={`badge`} style={{ background: `${themeColors.warning}22`, color: themeColors.warning, padding: '6px 10px', borderRadius: '10px' }}>{p.status}</span>
+                    </div>
+
+                    {/* Status badge */}
+                    <div style={{ flex: '0 0 90px', textAlign: 'center' }}>
+                      <span style={{
+                        padding: '4px 10px', borderRadius: 20, fontSize: '0.72rem', fontWeight: 700,
+                        background: p.status === 'completed' ? `${themeColors.success}22` : `${themeColors.warning}22`,
+                        color: p.status === 'completed' ? themeColors.success : themeColors.warning,
+                        textTransform: 'capitalize',
+                      }}>
+                        {p.status || 'active'}
+                      </span>
                     </div>
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
+                );
+              })}
+            </div>
+          )}
+        </div>
+
 
         {/* Supervisor: Task tracking and notifications layout */}
         {isSupervisor && (
@@ -436,11 +510,29 @@ export default function Dashboard() {
                 </div>
                 
                 <div className="d-flex gap-2 flex-wrap">
-                  <button className={`btn btn-sm ${viewMode === 'list' ? 'btn-danger' : 'btn-outline-danger'}`} style={viewMode === 'list' ? {backgroundColor: '#F56A6A', border: 'none'} : {color: '#F56A6A', borderColor: '#F56A6A'}} onClick={() => setViewMode('list')}><ClipboardList size={14}/> List</button>
-                  <button className={`btn btn-sm ${viewMode === 'board' ? 'btn-danger' : 'btn-outline-danger'}`} style={viewMode === 'board' ? {backgroundColor: '#F56A6A', border: 'none'} : {color: '#F56A6A', borderColor: '#F56A6A'}} onClick={() => setViewMode('board')}><CheckSquare size={14}/> Board</button>
-                  <button className={`btn btn-sm ${viewMode === 'calendar' ? 'btn-danger' : 'btn-outline-danger'}`} style={viewMode === 'calendar' ? {backgroundColor: '#F56A6A', border: 'none'} : {color: '#F56A6A', borderColor: '#F56A6A'}} onClick={() => setViewMode('calendar')}>Calendar</button>
-                  <button className={`btn btn-sm ${viewMode === 'gantt' ? 'btn-danger' : 'btn-outline-danger'}`} style={viewMode === 'gantt' ? {backgroundColor: '#F56A6A', border: 'none'} : {color: '#F56A6A', borderColor: '#F56A6A'}} onClick={() => setViewMode('gantt')}>Gantt</button>
-                  <button className="btn btn-sm" style={{backgroundColor: '#F56A6A', color: '#fff', border: 'none'}}>✓ Show Completed</button>
+                  {[
+                    { key: 'list', icon: <ClipboardList size={14}/>, label: 'List' },
+                    { key: 'board', icon: <CheckSquare size={14}/>, label: 'Board' },
+                    { key: 'calendar', icon: null, label: 'Calendar' },
+                    { key: 'gantt', icon: null, label: 'Gantt' },
+                  ].map(({ key, icon, label }) => (
+                    <button
+                      key={key}
+                      className="btn btn-sm"
+                      style={{
+                        background: viewMode === key ? '#F56A6A' : 'transparent',
+                        color: viewMode === key ? '#ffffff' : '#F56A6A',
+                        border: '1px solid #F56A6A',
+                        borderRadius: 6,
+                        fontWeight: 600,
+                        display: 'flex', alignItems: 'center', gap: 4,
+                      }}
+                      onClick={() => setViewMode(key)}
+                    >
+                      {icon} {label}
+                    </button>
+                  ))}
+                  <button className="btn btn-sm" style={{ background: 'transparent', color: '#F56A6A', border: '1px solid #F56A6A', borderRadius: 6, fontWeight: 600 }}>✓ Show Completed</button>
                 </div>
               </div>
 
@@ -554,6 +646,7 @@ export default function Dashboard() {
               <div className="mt-4">
                 <div className="d-flex justify-content-between text-muted small mb-4 pb-3" style={{ borderBottom: "1px dashed var(--border)" }}>
                   <span><strong>Location:</strong> {selectedExportProject.location || "N/A"}</span>
+                  <span><strong>Due Date:</strong> {selectedExportProject.endDate || "N/A"}</span>
                   <span><strong>Overall Progress:</strong> {selectedExportProject.progress || 0}%</span>
                   <span className="text-uppercase text-warning"><strong>Status:</strong> {selectedExportProject.status}</span>
                 </div>
@@ -602,6 +695,7 @@ export default function Dashboard() {
           <h1 style={{ fontSize: 24, marginBottom: 10, color: '#000' }}>{selectedExportProject.name} — Master Project Report</h1>
           <div style={{ marginBottom: 30, fontSize: 14, color: '#444', display: 'flex', gap: '30px' }}>
              <span><strong>Location:</strong> {selectedExportProject.location || "N/A"}</span>
+             <span><strong>Due Date:</strong> {selectedExportProject.endDate || "N/A"}</span>
              <span><strong>Progress:</strong> {selectedExportProject.progress || 0}%</span>
              <span><strong>Status:</strong> {selectedExportProject.status}</span>
           </div>

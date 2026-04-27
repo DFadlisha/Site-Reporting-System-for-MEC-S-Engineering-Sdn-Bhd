@@ -436,47 +436,44 @@ export default function TasksPage() {
 
         /* ── CONSULTANT / ADMIN VIEW: Original split-pane ─────────── */
         <>
-        {/* Projects strip */}
-        <div className="tk-projects-bar">
-          <div className="tk-projects-scroll">
-            <button
-              className={`tk-proj-chip ${!selProject ? "active" : ""}`}
-              onClick={() => setSelProject(null)}
+        {/* Project Selector Header — clean dropdown style */}
+        <div className="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-3">
+          <div className="d-flex align-items-center gap-2 flex-wrap">
+            <FolderOpen size={18} color="var(--accent)" />
+            <select
+              className="form-control form-control-sm"
+              style={{ minWidth: 220, maxWidth: 320, background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-primary)', borderRadius: 8, fontWeight: 600, cursor: 'pointer' }}
+              value={selProject?.id || ""}
+              onChange={(e) => {
+                if (!e.target.value) { setSelProject(null); }
+                else { setSelProject(projects.find(p => p.id === e.target.value) || null); }
+              }}
             >
-              <FolderOpen size={14} /> All Projects
-            </button>
-            {projects.map((p) => (
-              <div key={p.id} className="tk-proj-chip-wrap">
-                <button
-                  className={`tk-proj-chip ${selProject?.id === p.id ? "active" : ""}`}
-                  onClick={() => setSelProject(p)}
-                >
-                  <FolderOpen size={14} /> {p.name}
-                </button>
-                {canManageProjects && (
-                  <button className="tk-proj-del" onClick={() => handleDeleteProject(p.id)}>
-                    <X size={12} />
-                  </button>
-                )}
-              </div>
-            ))}
+              <option value="">All Projects</option>
+              {projects.map((p) => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
+            {selProject && canManageProjects && (
+              <button className="btn btn-sm btn-outline-danger" style={{ borderColor: 'var(--danger)', color: 'var(--danger)', borderRadius: 8 }} onClick={() => handleDeleteProject(selProject.id)}>
+                <Trash2 size={13} /> Delete
+              </button>
+            )}
           </div>
           <div className="d-flex gap-2">
             {canManageProjects && (
-              <button
-                className="btn btn-primary btn-sm"
-                onClick={() => setShowProjectModal(true)}
-              >
+              <button className="btn btn-primary btn-sm" style={{ borderRadius: 8 }} onClick={() => setShowProjectModal(true)}>
                 <Plus size={14} /> New Project
               </button>
             )}
             {canManageTasks && selProject && (
-              <button className="btn btn-outline-primary btn-sm" style={{borderColor: '#F56A6A', color: '#F56A6A'}} onClick={() => setShowAddTaskModal(true)}>
+              <button className="btn btn-sm" style={{ background: '#F56A6A', color: '#fff', border: 'none', borderRadius: 8 }} onClick={() => setShowAddTaskModal(true)}>
                 <Plus size={14} /> Add Task
               </button>
             )}
           </div>
         </div>
+
 
         {/* Master Detail Task Layout */}
         <div className="tk-split-layout">

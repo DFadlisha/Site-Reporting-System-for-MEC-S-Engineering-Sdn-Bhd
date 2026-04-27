@@ -43,6 +43,8 @@ export default function ReportsPage() {
   const [expandedExportProject, setExpandedExportProject] = useState(null);
   const [selectedExportProject, setSelectedExportProject] = useState(null);
   const fileInputRef = useRef(null);
+  const [locationFetching, setLocationFetching] = useState(false);
+  const [weatherInfo, setWeatherInfo] = useState(null); // { desc, temp, humidity, icon }
 
   // Comment modal state for approve/reject with comments (per flowchart)
   const [showCommentModal, setShowCommentModal] = useState(false);
@@ -482,10 +484,51 @@ export default function ReportsPage() {
 
                   <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12}}>
                     <input className="visily-input" value={form.materials} onChange={(e) => setForm({ ...form, materials: e.target.value })} placeholder="Materials Used" />
-                    <select className="visily-input" value={form.weather} onChange={(e) => setForm({ ...form, weather: e.target.value })} style={{color: form.weather ? 'inherit' : 'var(--text-muted)'}}>
-                      <option value="" disabled hidden>Weather</option>
-                      {["Sunny", "Cloudy", "Rainy", "Stormy", "Partly Cloudy"].map((w) => <option key={w}>{w}</option>)}
-                    </select>
+                    <div>
+                      {/* Weather — live badge (API) or custom pill selector */}
+                      {weatherInfo ? (
+                        <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '10px 12px', borderRadius: 8, border: '1px solid var(--border)', background: 'var(--bg-surface)' }}>
+                          <img src={`https://openweathermap.org/img/wn/${weatherInfo.icon}.png`} alt="weather" style={{ width: 32, height: 32 }} />
+                          <div style={{ flex: 1 }}>
+                            <div style={{ fontWeight: 700, fontSize: '0.85rem', color: 'var(--text-primary)' }}>{form.weather}</div>
+                            <div style={{ fontSize: '0.72rem', color: 'var(--text-secondary)' }}>{weatherInfo.temp}°C · Humidity {weatherInfo.humidity}%</div>
+                          </div>
+                          <button type="button" style={{ background: 'none', border: 'none', color: 'var(--text-muted)', cursor: 'pointer', fontSize: '0.7rem' }} onClick={() => { setWeatherInfo(null); setForm(f => ({ ...f, weather: '' })); }}>✕</button>
+                        </div>
+                      ) : (
+                        <div>
+                          <div style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', marginBottom: 6 }}>Weather <span style={{ opacity: 0.6 }}>(or auto-fill via GPS)</span></div>
+                          <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6 }}>
+                            {[
+                              { label: '☀️ Sunny', val: 'Sunny' },
+                              { label: '☁️ Cloudy', val: 'Cloudy' },
+                              { label: '🌦️ Partly', val: 'Partly Cloudy' },
+                              { label: '🌧️ Rainy', val: 'Rainy' },
+                              { label: '⛈️ Stormy', val: 'Stormy' },
+                            ].map(({ label, val }) => (
+                              <button
+                                key={val}
+                                type="button"
+                                onClick={() => setForm(f => ({ ...f, weather: val }))}
+                                style={{
+                                  padding: '5px 10px',
+                                  borderRadius: 20,
+                                  border: `1px solid ${form.weather === val ? '#F56A6A' : 'var(--border)'}`,
+                                  background: form.weather === val ? '#F56A6A' : 'var(--bg-surface)',
+                                  color: form.weather === val ? '#fff' : 'var(--text-primary)',
+                                  fontSize: '0.78rem',
+                                  fontWeight: 600,
+                                  cursor: 'pointer',
+                                  transition: 'all 0.15s',
+                                }}
+                              >
+                                {label}
+                              </button>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
                   </div>
                   
                   <input className="visily-input" value={form.issues} onChange={(e) => setForm({ ...form, issues: e.target.value })} placeholder="Issues / Problems (if any)" />
@@ -509,23 +552,66 @@ export default function ReportsPage() {
                   </div>
 
                   <div>
-                    <label style={{fontSize: '0.85rem', color: 'var(--text-primary)', marginBottom: 6, display: 'block', fontWeight: 600}}>GPS Location</label>
-                    <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 12 }}>
-                      <input className="visily-input" value={form.gpsLat} onChange={(e) => setForm({ ...form, gpsLat: e.target.value })} placeholder="Latitude" />
-                      <input className="visily-input" value={form.gpsLng} onChange={(e) => setForm({ ...form, gpsLng: e.target.value })} placeholder="Longitude" />
-                      <button type="button" className="visily-coral-btn" onClick={() => {
-                        if (navigator.geolocation) {
-                          toast.loading("Getting location...", {id: "loc"});
-                          navigator.geolocation.getCurrentPosition((pos) => {
-                            setForm({...form, gpsLat: pos.coords.latitude.toFixed(6), gpsLng: pos.coords.longitude.toFixed(6)});
-                            toast.success("Location acquired", {id: "loc"});
-                          }, () => toast.error("Failed to get location", {id: "loc"}));
-                        }
-                      }}>
-                        Get Location
-                      </button>
-                    </div>
-                  </div>
+                     <label style={{fontSize: '0.85rem', color: 'var(--text-primary)', marginBottom: 6, display: 'block', fontWeight: 600}}>
+                       GPS Location &amp; Weather
+                       <span style={{ fontWeight: 400, fontSize: '0.75rem', color: 'var(--text-secondary)', marginLeft: 8 }}>— click button to auto-detect</span>
+                     </label>
+                     <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 12 }}>
+                       <input className="visily-input" value={form.gpsLat} onChange={(e) => setForm({ ...form, gpsLat: e.target.value })} placeholder="Latitude" />
+                       <input className="visily-input" value={form.gpsLng} onChange={(e) => setForm({ ...form, gpsLng: e.target.value })} placeholder="Longitude" />
+                       <button type="button" className="visily-coral-btn" disabled={locationFetching} onClick={async () => {
+                         if (!navigator.geolocation) { toast.error("Geolocation not supported"); return; }
+                         setLocationFetching(true);
+                         toast.loading("Detecting location & weather...", { id: "loc" });
+                         navigator.geolocation.getCurrentPosition(async (pos) => {
+                           const lat = pos.coords.latitude.toFixed(6);
+                           const lng = pos.coords.longitude.toFixed(6);
+                           setForm(f => ({ ...f, gpsLat: lat, gpsLng: lng }));
+                           try {
+                             // ── OpenWeatherMap API ────────────────────────────
+                             const OWM_KEY = process.env.REACT_APP_OWM_KEY || "bd5e378503939ddaee76f12ad7a97608";
+                             const weatherRes = await fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lng}&appid=${OWM_KEY}&units=metric`);
+                             if (weatherRes.ok) {
+                               const wd = await weatherRes.json();
+                               const main = wd.weather[0].main; // Rain, Clouds, Clear, Thunderstorm, Drizzle
+                               const desc = wd.weather[0].description;
+                               const temp = Math.round(wd.main.temp);
+                               const humidity = wd.main.humidity;
+                               const icon = wd.weather[0].icon;
+                               // Map OWM condition to our labels
+                               const weatherLabel =
+                                 main === 'Clear' ? 'Sunny' :
+                                 main === 'Rain' || main === 'Drizzle' ? 'Rainy' :
+                                 main === 'Thunderstorm' ? 'Stormy' :
+                                 main === 'Clouds' && desc.includes('few') ? 'Partly Cloudy' :
+                                 main === 'Clouds' ? 'Cloudy' : 'Partly Cloudy';
+                               setForm(f => ({ ...f, weather: weatherLabel }));
+                               setWeatherInfo({ desc, temp, humidity, icon });
+                             }
+                             // ── Reverse Geocode (OpenStreetMap Nominatim) ─────
+                             const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`);
+                             if (geoRes.ok) {
+                               const gd = await geoRes.json();
+                               const city = gd.address?.city || gd.address?.town || gd.address?.village || gd.address?.county || '';
+                               const state = gd.address?.state || '';
+                               if (city || state) toast.success(`📍 ${city}${city && state ? ', ' : ''}${state} — weather auto-filled`, { id: "loc" });
+                               else toast.success("Location & weather acquired", { id: "loc" });
+                             } else {
+                               toast.success("Location & weather acquired", { id: "loc" });
+                             }
+                           } catch (err) {
+                             toast.success("GPS acquired (weather fetch failed)", { id: "loc" });
+                           }
+                           setLocationFetching(false);
+                         }, () => {
+                           toast.error("Failed to get location", { id: "loc" });
+                           setLocationFetching(false);
+                         });
+                       }}>
+                         {locationFetching ? <Loader2 size={14} className="spin" /> : <MapPin size={14} />} {locationFetching ? 'Detecting...' : 'Get Location'}
+                       </button>
+                     </div>
+                   </div>
 
                   <div style={{ marginTop: 8 }}>
                     <label style={{fontSize: '0.85rem', color: 'var(--text-primary)', marginBottom: 6, display: 'flex', justifyContent: 'space-between', fontWeight: 600}}>
