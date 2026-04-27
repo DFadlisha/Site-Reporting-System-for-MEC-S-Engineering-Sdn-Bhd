@@ -26,6 +26,8 @@ export default function IssuesPage() {
   const [filterSite, setFilterSite] = useState("all");
   const [filter, setFilter] = useState("all");
   const [form, setForm] = useState({ title: "", description: "", priority: "medium", location: "", projectId: "" });
+  const [photo, setPhoto] = useState(null);
+  const fileInputRef = React.useRef(null);
 
   // Comment modal for resolving with notes
   const [showResolveModal, setShowResolveModal] = useState(false);
@@ -55,10 +57,11 @@ export default function IssuesPage() {
         reportedBy: profile?.name,
         reportedByUid: profile?.uid || "", // Save UID for notifications
         reportedByRole: profile?.role,
-      });
+      }, photo);
       toast.success("Issue reported successfully");
       setShowModal(false);
       setForm({ title: "", description: "", priority: "medium", location: "", projectId: "" });
+      setPhoto(null);
     } catch (err) {
       toast.error(err.message);
     } finally { setSaving(false); }
@@ -163,9 +166,28 @@ export default function IssuesPage() {
                 </div>
                 <div>
                   <label style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', marginBottom: 6, display: 'block', fontWeight: 600 }}>Upload Photo (Optional)</label>
-                  <div className="rp-upload-area" style={{ padding: '30px 20px', border: '2px dashed var(--border)', borderRadius: 8, textAlign: 'center', cursor: 'pointer', background: 'var(--bg-surface)' }}>
-                    <div className="text-muted"><AlertTriangle size={24} color="var(--text-muted)"/></div>
-                    <div style={{ fontSize: '0.8rem', marginTop: 8, color: 'var(--text-secondary)' }}>Drag & drop a photo here, or click to browse</div>
+                  <input type="file" hidden ref={fileInputRef} accept="image/*" onChange={(e) => {
+                    if (e.target.files && e.target.files[0]) {
+                      setPhoto(e.target.files[0]);
+                    }
+                  }} />
+                  <div 
+                    className="rp-upload-area" 
+                    onClick={() => fileInputRef.current?.click()}
+                    style={{ padding: '30px 20px', border: '2px dashed var(--border)', borderRadius: 8, textAlign: 'center', cursor: 'pointer', background: 'var(--bg-surface)' }}
+                  >
+                    {photo ? (
+                      <div style={{ color: 'var(--success)', fontWeight: 600, fontSize: '0.9rem' }}>
+                        <CheckCircle size={24} style={{ marginBottom: 8 }} />
+                        <div>{photo.name}</div>
+                        <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: 4 }}>Click to change</div>
+                      </div>
+                    ) : (
+                      <>
+                        <div className="text-muted"><AlertTriangle size={24} color="var(--text-muted)"/></div>
+                        <div style={{ fontSize: '0.8rem', marginTop: 8, color: 'var(--text-secondary)' }}>Drag & drop a photo here, or click to browse</div>
+                      </>
+                    )}
                   </div>
                 </div>
                 <button type="submit" className="visily-full-btn mt-2" disabled={saving}>
@@ -329,6 +351,13 @@ export default function IssuesPage() {
                 <strong>Description:</strong><br/>
                 {detailsTarget.description}
               </div>
+
+              {detailsTarget.photoUrl && (
+                <div style={{ marginTop: 16 }}>
+                  <strong style={{ fontSize: '0.85rem', color: 'var(--text-secondary)', display: 'block', marginBottom: 8 }}>Attached Photo:</strong>
+                  <img src={detailsTarget.photoUrl} alt="Issue Attachment" style={{ maxWidth: '100%', maxHeight: 300, borderRadius: 8, border: '1px solid var(--border)' }} />
+                </div>
+              )}
             </div>
 
             {detailsTarget.resolveComment && (

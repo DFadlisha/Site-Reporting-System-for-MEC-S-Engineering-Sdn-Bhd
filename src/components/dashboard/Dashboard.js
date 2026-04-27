@@ -342,9 +342,9 @@ export default function Dashboard() {
           <div className="col-12 col-lg-8">
             <div className="card h-100 p-4">
               <div className="db-chart-title mb-3 fw-bold d-flex align-items-center gap-2">
-                <TrendingUp size={18} /> Activity Overview (Chart.js)
+                <TrendingUp size={18} /> Activity Overview
               </div>
-              <div style={{ height: "300px" }}>
+              <div style={{ position: 'relative', height: "300px", width: "100%" }}>
                 <Line data={lineChartData} options={lineChartOptions} />
               </div>
             </div>
@@ -354,10 +354,18 @@ export default function Dashboard() {
           <div className="col-12 col-lg-4">
             <div className="card h-100 p-4">
               <div className="db-chart-title mb-3 fw-bold d-flex align-items-center gap-2">
-                <CheckCircle size={18} /> {isSupervisor ? "My Task Distribution" : "Task Distribution"} (Chart.js)
+                <CheckCircle size={18} /> {isSupervisor ? "My Task Distribution" : "Task Distribution"}
               </div>
-              <div style={{ height: "300px" }}>
-                <Doughnut data={doughnutData} options={doughnutOptions} />
+              <div style={{ position: 'relative', height: "300px", width: "100%", display: 'flex', alignItems: 'center', justifyContent: 'center', flexDirection: 'column' }}>
+                {taskData.length === 0 ? (
+                  <div style={{ textAlign: 'center', color: 'var(--text-secondary)' }}>
+                    <CheckCircle size={40} style={{ opacity: 0.2, marginBottom: 10 }} />
+                    <div style={{ fontWeight: 600 }}>No task data available</div>
+                    <div style={{ fontSize: '0.8rem' }}>Check back when tasks are assigned</div>
+                  </div>
+                ) : (
+                  <Doughnut data={doughnutData} options={doughnutOptions} />
+                )}
               </div>
             </div>
           </div>

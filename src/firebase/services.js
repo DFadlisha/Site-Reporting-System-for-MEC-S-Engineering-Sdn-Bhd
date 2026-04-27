@@ -246,12 +246,20 @@ export const subscribeReports = (projectId, callback) => {
 
 // ─── ISSUES ───────────────────────────────────────────────────
 
-export const createIssue = async (data) =>
-  addDoc(collection(db, "issues"), {
+export const createIssue = async (data, photoFile = null) => {
+  let photoUrl = null;
+  if (photoFile) {
+    const storageRef = ref(storage, `issues/${Date.now()}_${photoFile.name}`);
+    await uploadBytes(storageRef, photoFile);
+    photoUrl = await getDownloadURL(storageRef);
+  }
+  return addDoc(collection(db, "issues"), {
     ...data,
+    photoUrl,
     status: "open",
     createdAt: serverTimestamp(),
   });
+};
 
 export const getIssues = async () => {
   const snap = await getDocs(
