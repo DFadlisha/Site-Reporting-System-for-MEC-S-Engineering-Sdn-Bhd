@@ -498,10 +498,10 @@ export default function Dashboard() {
             {/* Left side tasks area */}
             <div className="flex-grow-1 w-100">
               <div className="d-flex justify-content-between align-items-center mb-4 flex-wrap gap-3">
-                <div className="d-flex gap-2">
+                <div className="d-flex gap-2 flex-wrap w-100">
                   <select 
                     className="form-control form-control-sm" 
-                    style={{ width: "160px", background: "transparent", borderColor: "var(--border)" }}
+                    style={{ flex: "1 1 140px", background: "transparent", borderColor: "var(--border)", minWidth: "140px" }}
                     value={supervisorFilterProject}
                     onChange={(e) => setSupervisorFilterProject(e.target.value)}
                   >
@@ -510,7 +510,7 @@ export default function Dashboard() {
                   </select>
                   <select 
                     className="form-control form-control-sm" 
-                    style={{ width: "160px", background: "transparent", borderColor: "var(--border)" }}
+                    style={{ flex: "1 1 140px", background: "transparent", borderColor: "var(--border)", minWidth: "140px" }}
                     value={supervisorFilterStatus}
                     onChange={(e) => setSupervisorFilterStatus(e.target.value)}
                   >

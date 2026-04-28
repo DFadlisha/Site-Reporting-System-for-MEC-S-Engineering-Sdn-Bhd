@@ -248,7 +248,7 @@ export default function ReportsPage() {
                 borderRadius: 8
               }}>
                 {/* Status pills */}
-                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: '0 0 auto' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: 6, flex: '1 1 auto', flexWrap: 'wrap' }}>
                   {["all", "pending", "approved", "rejected"].map((s) => (
                     <button
                       key={s}

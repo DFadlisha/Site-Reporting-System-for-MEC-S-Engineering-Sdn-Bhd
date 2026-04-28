@@ -239,6 +239,22 @@ select.form-control { appearance: none; }
   overflow-y: auto;
   animation: slideUp 0.2s ease;
   display: block; /* Ensure visibility */
+  position: relative;
+}
+
+@media (max-width: 600px) {
+  .sp-modal {
+    padding: 20px;
+    max-height: 95vh;
+    border-radius: var(--radius-lg);
+  }
+  .modal-overlay {
+    padding: 10px;
+  }
+}
+
+.db-clickable-project {
+  touch-action: manipulation;
 }
 .sp-modal-title {
   font-family: var(--font-display);
