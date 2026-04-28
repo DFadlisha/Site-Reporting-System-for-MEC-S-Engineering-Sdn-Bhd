@@ -39,6 +39,7 @@ export default function TasksPage() {
   const [taskFilter, setTaskFilter] = useState("all");
   const [supervisors, setSupervisors] = useState([]);
   const [selectedTask, setSelectedTask] = useState(null);
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Modals
   const [showProjectModal, setShowProjectModal] = useState(false); // Combined Project + Task form
@@ -213,7 +214,14 @@ export default function TasksPage() {
     }
   };
 
-  const filteredTasks = taskFilter === "all" ? visibleTasks : visibleTasks.filter((t) => t.status === taskFilter);
+  const filteredTasks = visibleTasks.filter((t) => {
+    const matchStatus = taskFilter === "all" || t.status === taskFilter;
+    const matchSearch = !searchQuery || 
+      t.title?.toLowerCase().includes(searchQuery.toLowerCase()) || 
+      t.assignedTo?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      t.projectName?.toLowerCase().includes(searchQuery.toLowerCase());
+    return matchStatus && matchSearch;
+  });
 
   // Helper to format due date with urgency
   const formatDueDate = (dueDate) => {
@@ -481,7 +489,13 @@ export default function TasksPage() {
           <div className="tk-left-pane">
             <div className="tk-search-wrapper">
               <Search size={16} color="#999" />
-              <input type="text" placeholder="Search..." className="tk-search-input" />
+              <input 
+                type="text" 
+                placeholder="Search tasks, assignee, or project..." 
+                className="tk-search-input" 
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
               <Filter size={16} color="#999" style={{ cursor: 'pointer' }} />
             </div>
 
