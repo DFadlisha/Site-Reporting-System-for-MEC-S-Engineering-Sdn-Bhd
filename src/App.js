@@ -14,6 +14,7 @@ import IssuesPage from "./components/issues/IssuesPage";
 import NotificationsPage from "./components/notifications/NotificationsPage";
 import UsersPage from "./components/admin/UsersPage";
 import AuditPage from "./components/admin/AuditPage";
+import AdminNotifyPage from "./components/admin/AdminNotifyPage";
 import "./index.css";
 
 export default function App() {
@@ -94,6 +95,14 @@ export default function App() {
             element={
               <ProtectedRoute>
                 <AppLayout><AuditPage /></AppLayout>
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/admin-notify"
+            element={
+              <ProtectedRoute>
+                <AppLayout><AdminNotifyPage /></AppLayout>
               </ProtectedRoute>
             }
           />

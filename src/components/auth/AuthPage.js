@@ -73,6 +73,28 @@ export default function AuthPage() {
     form.confirmPassword.length > 0 &&
     form.password !== form.confirmPassword;
 
+  // ── Password strength rules ───────────────────────────────────────────────
+  const pw = form.password;
+  const pwRules = [
+    { id: "len",     label: "8 – 12 characters",      ok: pw.length >= 8 && pw.length <= 12 },
+    { id: "upper",   label: "Uppercase letter (A-Z)",  ok: /[A-Z]/.test(pw) },
+    { id: "lower",   label: "Lowercase letter (a-z)",  ok: /[a-z]/.test(pw) },
+    { id: "number",  label: "Number (0-9)",             ok: /[0-9]/.test(pw) },
+    { id: "special", label: "Special character (!@#…)",ok: /[^A-Za-z0-9]/.test(pw) },
+  ];
+  const pwScore       = pwRules.filter(r => r.ok).length;          // 0-5
+  const pwAllPassed   = pwScore === 5;
+  const pwStrengthLabel =
+    pwScore <= 1 ? "Very Weak" :
+    pwScore === 2 ? "Weak" :
+    pwScore === 3 ? "Fair" :
+    pwScore === 4 ? "Good" : "Strong";
+  const pwStrengthColor =
+    pwScore <= 1 ? "#ef4444" :
+    pwScore === 2 ? "#f97316" :
+    pwScore === 3 ? "#f59e0b" :
+    pwScore === 4 ? "#3b82f6" : "#22c55e";
+
   // ── Validate before register submit ──────────────────────────────────────
   const validateRegister = () => {
     if (!form.name.trim()) {
@@ -85,8 +107,8 @@ export default function AuthPage() {
       );
       return false;
     }
-    if (form.password.length < 6) {
-      toast.error("Password must be at least 6 characters.");
+    if (!pwAllPassed) {
+      toast.error("Password does not meet all strength requirements.");
       return false;
     }
     if (form.password !== form.confirmPassword) {
@@ -265,12 +287,15 @@ export default function AuthPage() {
                 id="input-password"
                 name="password"
                 type={showPw ? "text" : "password"}
-                className="form-control with-icon"
-                placeholder="••••••••"
+                className={`form-control with-icon ${
+                  mode === "register" && pw.length > 0
+                    ? pwAllPassed ? "input-valid" : "input-invalid"
+                    : ""
+                }`}
+                placeholder={mode === "register" ? "Min 8 chars, mixed case + number + symbol" : "••••••••"}
                 value={form.password}
                 onChange={change}
                 required
-                minLength={6}
                 autoComplete={mode === "login" ? "current-password" : "new-password"}
               />
               <button
@@ -283,6 +308,39 @@ export default function AuthPage() {
                 {showPw ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
             </div>
+
+            {/* Strength meter + checklist — register only */}
+            {mode === "register" && pw.length > 0 && (
+              <div className="pw-strength-wrap">
+                {/* Bar */}
+                <div className="pw-strength-bar-track">
+                  {[1,2,3,4,5].map(i => (
+                    <div
+                      key={i}
+                      className="pw-strength-segment"
+                      style={{
+                        background: i <= pwScore ? pwStrengthColor : "var(--border)",
+                        transition: "background 0.25s",
+                      }}
+                    />
+                  ))}
+                  <span className="pw-strength-label" style={{ color: pwStrengthColor }}>
+                    {pwStrengthLabel}
+                  </span>
+                </div>
+                {/* Rule checklist */}
+                <ul className="pw-rules">
+                  {pwRules.map(r => (
+                    <li key={r.id} className={`pw-rule ${r.ok ? "ok" : ""}`}>
+                      {r.ok
+                        ? <CheckCircle2 size={12} />
+                        : <XCircle size={12} />}
+                      {r.label}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
           </div>
 
           {/* Confirm password — register only */}

@@ -232,3 +232,57 @@
 @media (max-width: 480px) {
   .auth-card { padding: 24px 20px; }
 }
+
+/* ─── Password Strength Meter ────────────────────────────────── */
+.pw-strength-wrap {
+  margin-top: 10px;
+  animation: fadeIn 0.2s ease;
+}
+
+/* Segmented bar */
+.pw-strength-bar-track {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+.pw-strength-segment {
+  flex: 1;
+  height: 5px;
+  border-radius: 3px;
+}
+.pw-strength-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  white-space: nowrap;
+  margin-left: 8px;
+  min-width: 56px;
+  text-align: right;
+  transition: color 0.25s;
+}
+
+/* Rule checklist */
+.pw-rules {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px 12px;
+}
+@media (max-width: 400px) {
+  .pw-rules { grid-template-columns: 1fr; }
+}
+
+.pw-rule {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.74rem;
+  color: var(--text-muted);
+  transition: color 0.2s;
+}
+.pw-rule svg { flex-shrink: 0; color: var(--danger); transition: color 0.2s; }
+.pw-rule.ok { color: var(--success); }
+.pw-rule.ok svg { color: var(--success); }
+

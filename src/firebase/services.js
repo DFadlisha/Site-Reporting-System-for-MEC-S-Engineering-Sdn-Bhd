@@ -19,6 +19,7 @@ import {
   signInWithEmailAndPassword,
   signOut,
   updateProfile,
+  sendPasswordResetEmail,
 } from "firebase/auth";
 import { ref, uploadBytes, getDownloadURL } from "firebase/storage";
 import { getToken } from "firebase/messaging";
@@ -302,6 +303,85 @@ export const markNotificationRead = async (id) =>
   updateDoc(doc(db, "notifications", id), { read: true });
 
 // ─── UTILS: DUMMY DATA SEEDER ─────────────────────────────────
+
+export const resetUserPassword = async (email) => {
+  await sendPasswordResetEmail(auth, email);
+};
+
+// ─── ADMIN: USER ACTIONS ──────────────────────────────────────
+
+export const rejectUser = async (id, reason) => {
+  const userSnap = await getDoc(doc(db, "users", id));
+  if (userSnap.exists()) {
+    const userData = userSnap.data();
+    await updateDoc(doc(db, "users", id), {
+      status: "rejected",
+      rejectionReason: reason,
+      updatedAt: serverTimestamp(),
+    });
+    if (userData.uid) {
+      await addDoc(collection(db, "notifications"), {
+        recipientUid: userData.uid,
+        message: `❌ Your registration has been rejected. Reason: "${reason}". Please contact the administrator for further assistance.`,
+        type: "error",
+        read: false,
+        createdAt: serverTimestamp(),
+      });
+    }
+  }
+};
+
+export const deactivateUser = async (id, reactivate = false) => {
+  await updateDoc(doc(db, "users", id), {
+    status: reactivate ? "approved" : "deactivated",
+    updatedAt: serverTimestamp(),
+  });
+};
+
+export const deleteUserDoc = async (id) => {
+  await deleteDoc(doc(db, "users", id));
+};
+
+export const updateUserDetails = async (id, data) => {
+  await updateDoc(doc(db, "users", id), { ...data, updatedAt: serverTimestamp() });
+};
+
+export const broadcastNotification = async (message, targetRole = null) => {
+  const q = targetRole
+    ? query(collection(db, "users"), where("role", "==", targetRole), where("status", "==", "approved"))
+    : query(collection(db, "users"), where("status", "==", "approved"));
+  const snap = await getDocs(q);
+  const promises = snap.docs
+    .map((d) => d.data())
+    .filter((u) => u.uid)
+    .map((u) =>
+      addDoc(collection(db, "notifications"), {
+        recipientUid: u.uid,
+        message,
+        type: "info",
+        read: false,
+        isAnnouncement: true,
+        createdAt: serverTimestamp(),
+      })
+    );
+  await Promise.all(promises);
+  await addDoc(collection(db, "audit_logs"), {
+    action: "ANNOUNCEMENT_SENT",
+    entityType: "SYSTEM",
+    userId: "ADMIN",
+    changes: { message, targetRole: targetRole || "all", recipientCount: snap.docs.length },
+    timestamp: serverTimestamp(),
+  });
+  return snap.docs.length;
+};
+
+export const subscribeAuditLogs = (callback) =>
+  onSnapshot(
+    query(collection(db, "audit_logs"), orderBy("timestamp", "desc")),
+    (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
+  );
+
+// ─── DUMMY DATA ───────────────────────────────────────────────
 
 export const seedDummyData = async () => {
   // ── 5 Completed Projects ────────────────────────────────────────

@@ -7,6 +7,7 @@ import {
 } from "lucide-react";
 import { useNavigate } from "react-router-dom";
 import Topbar from "../shared/Topbar";
+import AdminDashboard from "./AdminDashboard";
 import { subscribeProjects, subscribeTasks, subscribeReports, subscribeIssues, seedDummyData, requestPushPermission, subscribeNotifications } from "../../firebase/services";
 import { useAuth } from "../../contexts/AuthContext";
 import { useTheme } from "../../contexts/ThemeContext";
@@ -51,6 +52,9 @@ export default function Dashboard() {
   const isConsultant = role === "consultant";
   const isSupervisor = role === "supervisor";
   const isAdmin = role === "admin";
+
+  // Admin gets its own dedicated dashboard
+  if (isAdmin) return <AdminDashboard />;
 
   const themeColors = {
     info: isDarkMode ? "#58a6ff" : "#3b82f6",
