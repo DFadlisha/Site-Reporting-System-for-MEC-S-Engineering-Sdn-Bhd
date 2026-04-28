@@ -1,5 +1,5 @@
 // public/sw.js
-const CACHE_NAME = 'sprs-pwa-cache-v1';
+const CACHE_NAME = 'sprs-pwa-cache-v2';
 const urlsToCache = [
   '/',
   '/index.html',
