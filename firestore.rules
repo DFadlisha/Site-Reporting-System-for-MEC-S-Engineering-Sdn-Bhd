@@ -17,9 +17,7 @@ service cloud.firestore {
 
     // Users collection
     match /users/{userId} {
-      allow read:  if isAuth();
-      allow write: if isAuth() && request.auth.uid == userId;
-      allow create: if isAuth();
+      allow read, write: if isAuth();
     }
 
     // Projects

@@ -100,7 +100,7 @@ export default function ReportsPage() {
     setLoading(true);
     try {
       // Capture signature via Canvas API as base64 string
-      const signatureData = sigCanvas.current.getTrimmedCanvas().toDataURL('image/png');
+      const signatureData = sigCanvas.current.getCanvas().toDataURL('image/png');
       const selectedProject = projects.find((p) => p.id === form.projectId);
       await createReport(
         {
