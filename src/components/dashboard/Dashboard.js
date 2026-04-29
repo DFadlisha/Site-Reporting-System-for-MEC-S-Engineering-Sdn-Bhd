@@ -381,7 +381,11 @@ export default function Dashboard() {
             <FolderOpen size={18} /> Project Overview
           </div>
           {projects.length === 0 ? (
-            <p className="text-muted small">No projects yet. Create one from the Task Tracking page.</p>
+            <p className="text-muted small">
+              No projects yet. {isSupervisor 
+                ? "Your consultant will assign you to a project soon." 
+                : "Create one from the Project Tracking page."}
+            </p>
           ) : (
             <div className="table-responsive">
               {/* Column headers */}
@@ -492,7 +496,7 @@ export default function Dashboard() {
         </div>
 
 
-        {/* Supervisor: Task tracking and notifications layout */}
+        {/* Supervisor: Project tracking and notifications layout */}
         {isSupervisor && (
           <div className="d-flex flex-column flex-xl-row gap-4 align-items-start mt-4">
             {/* Left side tasks area */}
@@ -573,8 +577,13 @@ export default function Dashboard() {
                               </span>
                            )}
                            <span style={{fontSize: "0.7rem", padding: "4px 8px", borderRadius: "12px", background: "rgba(88,166,255,0.15)", color: "var(--info)", fontWeight: 700}}>
-                             {t.projectName || "Site Unknown"}
+                             {t.projectName || "Project Unknown"}
                            </span>
+                           {t.site && (
+                             <span style={{fontSize: "0.7rem", padding: "4px 8px", borderRadius: "12px", background: "var(--bg-elevated)", color: "var(--text-secondary)", fontWeight: 600, border: "1px solid var(--border)"}}>
+                               <MapPin size={10} style={{marginRight: 4}}/> {t.site}
+                             </span>
+                           )}
                          </div>
                          <div className="d-flex justify-content-between align-items-center mt-auto pt-2">
                            <div className="text-muted d-flex gap-3 align-items-center" style={{fontSize: "0.8rem"}}>
@@ -642,52 +651,77 @@ export default function Dashboard() {
         {/* Export Project Modal (Consultant/Admin) */}
         {selectedExportProject && (
           <div className="modal-overlay d-print-none" onClick={() => setSelectedExportProject(null)}>
-            <div className="sp-modal" style={{ maxWidth: '700px' }} onClick={(e) => e.stopPropagation()}>
-              <div className="sp-modal-title d-flex justify-content-between align-items-center mb-0">
-                <span style={{ fontSize: '1.4rem' }}>{selectedExportProject.name} — Report</span>
-                <div className="d-flex gap-2">
-                   <button className="btn btn-outline-secondary btn-sm" onClick={() => window.print()}>
-                     <Download size={14} /> Export PDF
+            <div className="sp-modal sp-modal-wide" onClick={(e) => e.stopPropagation()}>
+              <div className="sp-modal-header">
+                <h3 className="sp-modal-title">{selectedExportProject.name} — Project Report</h3>
+                <div className="sp-modal-actions">
+                   <button className="btn btn-primary btn-sm" onClick={() => window.print()}>
+                     <Download size={16} /> Export PDF
                    </button>
-                   <button className="btn btn-ghost btn-sm p-1" onClick={() => setSelectedExportProject(null)}>
-                     <X size={18} />
+                   <button className="btn-close-modal" onClick={() => setSelectedExportProject(null)}>
+                     <X size={20} />
                    </button>
                 </div>
               </div>
 
-              <div className="mt-4">
-                <div className="d-flex justify-content-between text-muted small mb-4 pb-3" style={{ borderBottom: "1px dashed var(--border)" }}>
-                  <span><strong>Location:</strong> {selectedExportProject.location || "N/A"}</span>
-                  <span><strong>Due Date:</strong> {selectedExportProject.endDate || "N/A"}</span>
-                  <span><strong>Overall Progress:</strong> {selectedExportProject.progress || 0}%</span>
-                  <span className="text-uppercase text-warning"><strong>Status:</strong> {selectedExportProject.status}</span>
+              <div className="sp-modal-body">
+                <div className="sp-project-grid">
+                  <div className="sp-grid-item">
+                    <span className="sp-item-label">Location</span>
+                    <span className="sp-item-value">{selectedExportProject.location || "N/A"}</span>
+                  </div>
+                  <div className="sp-grid-item">
+                    <span className="sp-item-label">Due Date</span>
+                    <span className="sp-item-value">{selectedExportProject.endDate || "N/A"}</span>
+                  </div>
+                  <div className="sp-grid-item">
+                    <span className="sp-item-label">Overall Progress</span>
+                    <div className="d-flex align-items-center gap-2">
+                      <div className="sp-mini-progress">
+                        <div className="sp-mini-fill" style={{ width: `${selectedExportProject.progress || 0}%` }} />
+                      </div>
+                      <span className="sp-item-value">{selectedExportProject.progress || 0}%</span>
+                    </div>
+                  </div>
+                  <div className="sp-grid-item">
+                    <span className="sp-item-label">Current Status</span>
+                    <span className={`sp-status-text status-${selectedExportProject.status}`}>
+                      {selectedExportProject.status?.toUpperCase()}
+                    </span>
+                  </div>
                 </div>
                 
-                <h6 className="mb-3" style={{ color: "var(--text-primary)", fontWeight: "600" }}>Master Task List</h6>
-                <div className="table-responsive">
-                  <table className="table table-hover table-sm">
+                <div className="sp-section-header">
+                  <ClipboardList size={18} />
+                  <span>Master Task List</span>
+                </div>
+
+                <div className="sp-table-container">
+                  <table className="sp-modern-table">
                     <thead>
                       <tr>
-                        <th style={{ color: "var(--text-secondary)" }}>Task Title</th>
-                        <th style={{ color: "var(--text-secondary)" }}>Assigned Worker</th>
-                        <th style={{ color: "var(--text-secondary)" }}>Status</th>
-                        <th style={{ color: "var(--text-secondary)" }}>Date Created</th>
+                        <th>Task Title</th>
+                        <th>Assigned Worker</th>
+                        <th>Status</th>
+                        <th>Date Created</th>
                       </tr>
                     </thead>
-                    <tbody style={{ color: "var(--text-primary)" }}>
+                    <tbody>
                       {tasks.filter(t => t.projectId === selectedExportProject.id).length === 0 ? (
                         <tr><td colSpan="4" className="text-center py-4 text-muted">No tasks assigned to this project yet.</td></tr>
                       ) : (
                         tasks.filter(t => t.projectId === selectedExportProject.id).map(t => (
                           <tr key={t.id}>
-                            <td>{t.title}</td>
+                            <td className="fw-semibold">{t.title}</td>
                             <td>{t.assignedTo || "Unassigned"}</td>
                             <td>
                               <span className={`badge badge-${t.status || 'todo'}`}>
                                 {t.status}
                               </span>
                             </td>
-                            <td>{t.createdAt?.toDate ? new Date(t.createdAt.toDate()).toLocaleDateString() : 'N/A'}</td>
+                            <td className="text-muted small">
+                              {t.createdAt?.toDate ? new Date(t.createdAt.toDate()).toLocaleDateString() : 'N/A'}
+                            </td>
                           </tr>
                         ))
                       )}
@@ -702,44 +736,129 @@ export default function Dashboard() {
       </div>
       
       {/* Invisible Printable Component triggered by window.print() */}
-      {selectedExportProject && (
-        <div className="printable-master-report">
-          <h1 style={{ fontSize: 24, marginBottom: 10, color: '#000' }}>{selectedExportProject.name} — Master Project Report</h1>
-          <div style={{ marginBottom: 30, fontSize: 14, color: '#444', display: 'flex', gap: '30px' }}>
-             <span><strong>Location:</strong> {selectedExportProject.location || "N/A"}</span>
-             <span><strong>Due Date:</strong> {selectedExportProject.endDate || "N/A"}</span>
-             <span><strong>Progress:</strong> {selectedExportProject.progress || 0}%</span>
-             <span><strong>Status:</strong> {selectedExportProject.status}</span>
-          </div>
+      {selectedExportProject && (() => {
+        const projectReports = reports.filter(r => r.projectId === selectedExportProject.id);
+        const projectTasks = tasks.filter(t => t.projectId === selectedExportProject.id);
+        const projectIssues = issues.filter(i => i.projectId === selectedExportProject.id);
+        const consultantName = projectReports.find(r => r.reviewedBy)?.reviewedBy || "MEC'S Engineering Consultant";
+        
+        const evidencePhotos = [
+          ...projectReports.flatMap(r => (r.photoUrls || []).map(url => ({ url, title: r.title, date: r.date }))),
+          ...projectIssues.filter(i => i.photoUrl).map(i => ({ url: i.photoUrl, title: `Issue: ${i.title}`, date: i.createdAt?.toDate ? i.createdAt.toDate().toLocaleDateString() : 'N/A' }))
+        ];
 
-          <h2 style={{ fontSize: 18, borderBottom: '1px solid #ccc', paddingBottom: 5, marginBottom: 15 }}>Assigned Project Tasks</h2>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12, textAlign: 'left' }}>
-            <thead>
-              <tr style={{ backgroundColor: '#f0f0f0' }}>
-                <th style={{ padding: '8px', border: '1px solid #ccc' }}>Task Title</th>
-                <th style={{ padding: '8px', border: '1px solid #ccc' }}>Assigned To</th>
-                <th style={{ padding: '8px', border: '1px solid #ccc' }}>Status</th>
-                <th style={{ padding: '8px', border: '1px solid #ccc' }}>Date Created</th>
-              </tr>
-            </thead>
-            <tbody>
-              {tasks.filter(t => t.projectId === selectedExportProject.id).length === 0 ? (
-                <tr><td colSpan="4" style={{ padding: '8px', border: '1px solid #ccc', textAlign: 'center' }}>No tasks found.</td></tr>
-              ) : (
-                tasks.filter(t => t.projectId === selectedExportProject.id).map(t => (
-                  <tr key={t.id}>
-                    <td style={{ padding: '8px', border: '1px solid #ccc' }}>{t.title}</td>
-                    <td style={{ padding: '8px', border: '1px solid #ccc' }}>{t.assignedTo || "—"}</td>
-                    <td style={{ padding: '8px', border: '1px solid #ccc', textTransform: 'uppercase' }}>{t.status}</td>
-                    <td style={{ padding: '8px', border: '1px solid #ccc' }}>{t.createdAt?.toDate ? new Date(t.createdAt.toDate()).toLocaleDateString() : 'N/A'}</td>
+        return (
+          <div className="printable-master-report">
+            {/* Header / Letterhead */}
+            <div className="report-letterhead">
+              <div className="lh-left">
+                <div className="lh-logo">SPRS</div>
+                <div className="lh-company">MEC'S Engineering Sdn Bhd</div>
+                <div className="lh-address">Level 12, Tower A, PJ Exchange, No. 165 Jalan Barat, 46050 Petaling Jaya, Selangor</div>
+              </div>
+              <div className="lh-right">
+                <div className="report-type">PROJECT STATUS REPORT</div>
+                <div className="report-date">Generated on: {new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}</div>
+              </div>
+            </div>
+
+            <div className="report-divider" />
+
+            {/* Project Summary Section */}
+            <div className="report-section">
+              <h2 className="section-title">1. Project Information</h2>
+              <div className="info-grid">
+                <div className="info-item">
+                  <span className="info-label">Project Name:</span>
+                  <span className="info-value">{selectedExportProject.name}</span>
+                </div>
+                <div className="info-item">
+                  <span className="info-label">Consultant:</span>
+                  <span className="info-value">{consultantName}</span>
+                </div>
+                <div className="info-item">
+                  <span className="info-label">Location:</span>
+                  <span className="info-value">{selectedExportProject.location || "N/A"}</span>
+                </div>
+                <div className="info-item">
+                  <span className="info-label">Status:</span>
+                  <span className="info-value status-tag">{selectedExportProject.status?.toUpperCase()}</span>
+                </div>
+                <div className="info-item">
+                  <span className="info-label">Start Date:</span>
+                  <span className="info-value">{selectedExportProject.startDate || "N/A"}</span>
+                </div>
+                <div className="info-item">
+                  <span className="info-label">Due Date:</span>
+                  <span className="info-value">{selectedExportProject.endDate || "N/A"}</span>
+                </div>
+                <div className="info-item">
+                  <span className="info-label">Overall Progress:</span>
+                  <span className="info-value">{selectedExportProject.progress || 0}%</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Tasks Section */}
+            <div className="report-section">
+              <h2 className="section-title">2. Task Management Overview</h2>
+              <table className="report-table">
+                <thead>
+                  <tr>
+                    <th>Task Description</th>
+                    <th>Assigned To</th>
+                    <th>Status</th>
+                    <th>Due Date</th>
                   </tr>
-                ))
+                </thead>
+                <tbody>
+                  {projectTasks.length === 0 ? (
+                    <tr><td colSpan="4" className="text-center">No tasks recorded for this project.</td></tr>
+                  ) : (
+                    projectTasks.map(t => (
+                      <tr key={t.id}>
+                        <td><strong>{t.title}</strong></td>
+                        <td>{t.assignedTo || "—"}</td>
+                        <td><span className={`task-badge ${t.status}`}>{t.status?.toUpperCase()}</span></td>
+                        <td>{t.dueDate || "N/A"}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Evidence Section */}
+            <div className="report-section">
+              <h2 className="section-title">3. Site Evidence & Progress Photos</h2>
+              {evidencePhotos.length === 0 ? (
+                <div className="no-evidence">No photo evidence available for this project.</div>
+              ) : (
+                <div className="evidence-gallery">
+                  {evidencePhotos.map((photo, idx) => (
+                    <div key={idx} className="evidence-item">
+                      <img src={photo.url} alt={`Evidence ${idx + 1}`} />
+                      <div className="evidence-caption">
+                        <strong>{photo.title}</strong>
+                        <span>{photo.date}</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
               )}
-            </tbody>
-          </table>
-          <p style={{ marginTop: 40, fontSize: 10, color: '#666' }}>Generated automatically by SPRS Enterprise Reporting Engine.</p>
-        </div>
-      )}
+            </div>
+
+            {/* Footer */}
+            <div className="report-footer">
+              <div className="footer-line" />
+              <div className="footer-content">
+                <p>This is a computer-generated report from the Site Progress Reporting System (SPRS).</p>
+                <p>© {new Date().getFullYear()} MEC'S Engineering Sdn Bhd. All rights reserved.</p>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   );
 }

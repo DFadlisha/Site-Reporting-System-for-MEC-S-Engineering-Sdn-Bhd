@@ -559,55 +559,74 @@ export default function ReportsPage() {
                      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr auto", gap: 12 }}>
                        <input className="visily-input" value={form.gpsLat} onChange={(e) => setForm({ ...form, gpsLat: e.target.value })} placeholder="Latitude" />
                        <input className="visily-input" value={form.gpsLng} onChange={(e) => setForm({ ...form, gpsLng: e.target.value })} placeholder="Longitude" />
-                       <button type="button" className="visily-coral-btn" disabled={locationFetching} onClick={async () => {
-                         if (!navigator.geolocation) { toast.error("Geolocation not supported"); return; }
-                         setLocationFetching(true);
-                         toast.loading("Detecting location & weather...", { id: "loc" });
-                         navigator.geolocation.getCurrentPosition(async (pos) => {
-                           const lat = pos.coords.latitude.toFixed(6);
-                           const lng = pos.coords.longitude.toFixed(6);
-                           setForm(f => ({ ...f, gpsLat: lat, gpsLng: lng }));
-                           try {
-                             // ── OpenWeatherMap API ────────────────────────────
-                             const OWM_KEY = process.env.REACT_APP_OWM_KEY || "bd5e378503939ddaee76f12ad7a97608";
-                             const weatherRes = await fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lng}&appid=${OWM_KEY}&units=metric`);
-                             if (weatherRes.ok) {
-                               const wd = await weatherRes.json();
-                               const main = wd.weather[0].main; // Rain, Clouds, Clear, Thunderstorm, Drizzle
-                               const desc = wd.weather[0].description;
-                               const temp = Math.round(wd.main.temp);
-                               const humidity = wd.main.humidity;
-                               const icon = wd.weather[0].icon;
-                               // Map OWM condition to our labels
-                               const weatherLabel =
-                                 main === 'Clear' ? 'Sunny' :
-                                 main === 'Rain' || main === 'Drizzle' ? 'Rainy' :
-                                 main === 'Thunderstorm' ? 'Stormy' :
-                                 main === 'Clouds' && desc.includes('few') ? 'Partly Cloudy' :
-                                 main === 'Clouds' ? 'Cloudy' : 'Partly Cloudy';
-                               setForm(f => ({ ...f, weather: weatherLabel }));
-                               setWeatherInfo({ desc, temp, humidity, icon });
-                             }
-                             // ── Reverse Geocode (OpenStreetMap Nominatim) ─────
-                             const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`);
-                             if (geoRes.ok) {
-                               const gd = await geoRes.json();
-                               const city = gd.address?.city || gd.address?.town || gd.address?.village || gd.address?.county || '';
-                               const state = gd.address?.state || '';
-                               if (city || state) toast.success(`📍 ${city}${city && state ? ', ' : ''}${state} — weather auto-filled`, { id: "loc" });
-                               else toast.success("Location & weather acquired", { id: "loc" });
-                             } else {
-                               toast.success("Location & weather acquired", { id: "loc" });
-                             }
-                           } catch (err) {
-                             toast.success("GPS acquired (weather fetch failed)", { id: "loc" });
-                           }
-                           setLocationFetching(false);
-                         }, () => {
-                           toast.error("Failed to get location", { id: "loc" });
-                           setLocationFetching(false);
-                         });
-                       }}>
+                        <button type="button" className="visily-coral-btn" disabled={locationFetching} onClick={async () => {
+                          if (!navigator.geolocation && !window.fetch) { toast.error("Location not supported"); return; }
+                          setLocationFetching(true);
+                          toast.loading("Detecting location...", { id: "loc" });
+
+                          const handleLocationSuccess = async (lat, lng) => {
+                            setForm(f => ({ ...f, gpsLat: lat, gpsLng: lng }));
+                            try {
+                              const OWM_KEY = process.env.REACT_APP_OWM_KEY || "bd5e378503939ddaee76f12ad7a97608";
+                              const weatherRes = await fetch(`https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lng}&appid=${OWM_KEY}&units=metric`);
+                              if (weatherRes.ok) {
+                                const wd = await weatherRes.json();
+                                const main = wd.weather[0].main;
+                                const desc = wd.weather[0].description;
+                                const temp = Math.round(wd.main.temp);
+                                const humidity = wd.main.humidity;
+                                const icon = wd.weather[0].icon;
+                                const weatherLabel = main === 'Clear' ? 'Sunny' : main === 'Rain' || main === 'Drizzle' ? 'Rainy' : main === 'Thunderstorm' ? 'Stormy' : (main === 'Clouds' && desc.includes('few')) ? 'Partly Cloudy' : main === 'Clouds' ? 'Cloudy' : 'Partly Cloudy';
+                                setForm(f => ({ ...f, weather: weatherLabel }));
+                                setWeatherInfo({ desc, temp, humidity, icon });
+                              }
+                              const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json`);
+                              if (geoRes.ok) {
+                                const gd = await geoRes.json();
+                                const city = gd.address?.city || gd.address?.town || gd.address?.village || gd.address?.county || '';
+                                const state = gd.address?.state || '';
+                                if (city || state) toast.success(`📍 ${city}${city && state ? ', ' : ''}${state} — auto-detected`, { id: "loc" });
+                                else toast.success("Location acquired", { id: "loc" });
+                              } else {
+                                toast.success("Location acquired", { id: "loc" });
+                              }
+                            } catch (err) {
+                              toast.success("Location acquired", { id: "loc" });
+                            }
+                            setLocationFetching(false);
+                          };
+
+                          if (navigator.geolocation) {
+                            navigator.geolocation.getCurrentPosition(
+                              (pos) => handleLocationSuccess(pos.coords.latitude.toFixed(6), pos.coords.longitude.toFixed(6)),
+                              async () => {
+                                // FALLBACK: IP-based location (works on HTTP/IP)
+                                try {
+                                  const ipRes = await fetch("https://ipapi.co/json/");
+                                  if (ipRes.ok) {
+                                    const ipData = await ipRes.json();
+                                    if (ipData.latitude && ipData.longitude) {
+                                      handleLocationSuccess(ipData.latitude.toFixed(6), ipData.longitude.toFixed(6));
+                                      return;
+                                    }
+                                  }
+                                } catch (e) { console.error("IP fallback failed", e); }
+                                toast.error("Location access failed. Browsers require HTTPS or 'localhost'.", { id: "loc" });
+                                setLocationFetching(false);
+                              }
+                            );
+                          } else {
+                            // Direct IP fallback
+                            try {
+                              const ipRes = await fetch("https://ipapi.co/json/");
+                              const ipData = await ipRes.json();
+                              handleLocationSuccess(ipData.latitude.toFixed(6), ipData.longitude.toFixed(6));
+                            } catch (e) {
+                              toast.error("Location detection failed.");
+                              setLocationFetching(false);
+                            }
+                          }
+                        }}>
                          {locationFetching ? <Loader2 size={14} className="spin" /> : <MapPin size={14} />} {locationFetching ? 'Detecting...' : 'Get Location'}
                        </button>
                      </div>

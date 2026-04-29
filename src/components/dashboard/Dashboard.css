@@ -139,6 +139,127 @@
   transform: translateX(4px);
 }
 
+/* ─── Premium Modal Styles ────────────────────────── */
+.sp-modal-wide {
+  max-width: 800px;
+}
+.sp-modal-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 24px;
+}
+.sp-modal-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.btn-close-modal {
+  background: transparent;
+  border: none;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 8px;
+  border-radius: 50%;
+  transition: all 0.2s;
+}
+.btn-close-modal:hover {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+}
+
+.sp-project-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: 20px;
+  margin-bottom: 30px;
+  padding: 20px;
+  background: var(--bg-elevated);
+  border-radius: var(--radius-lg);
+  border: 1px solid var(--border);
+}
+.sp-grid-item {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.sp-item-label {
+  font-size: 0.725rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.sp-item-value {
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.sp-mini-progress {
+  width: 60px;
+  height: 6px;
+  background: rgba(255,255,255,0.05);
+  border-radius: 99px;
+  overflow: hidden;
+}
+.sp-mini-fill {
+  height: 100%;
+  background: var(--accent);
+  border-radius: 99px;
+}
+.sp-status-text {
+  font-weight: 700;
+  font-size: 0.9rem;
+}
+.sp-status-text.status-active { color: var(--success); }
+.sp-status-text.status-completed { color: var(--info); }
+.sp-status-text.status-delayed { color: var(--danger); }
+
+.sp-section-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 16px;
+  font-weight: 700;
+  font-size: 0.95rem;
+  color: var(--text-primary);
+}
+
+.sp-table-container {
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  border: 1px solid var(--border);
+}
+.sp-modern-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: transparent;
+}
+.sp-modern-table th {
+  background: rgba(255,255,255,0.02);
+  padding: 12px 16px;
+  text-align: left;
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  border-bottom: 1px solid var(--border);
+}
+.sp-modern-table td {
+  padding: 14px 16px;
+  font-size: 0.875rem;
+  color: var(--text-primary);
+  border-bottom: 1px solid var(--border);
+}
+.sp-modern-table tr:last-child td {
+  border-bottom: none;
+}
+.sp-modern-table tr:hover td {
+  background: rgba(255,255,255,0.01);
+}
+
 /* Print Styles for Master Export Modal */
 .printable-master-report, .printable-reports-export {
   display: none;
@@ -160,8 +281,174 @@
     left: 0;
     top: 0;
     width: 100%;
-    padding: 20px;
+    padding: 0;
     background: white;
+    color: #1a1a1a;
+    font-family: 'Inter', -apple-system, sans-serif;
+  }
+
+  /* Professional Report Styles */
+  .report-letterhead {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    padding: 20px 0;
+  }
+  .lh-logo {
+    font-weight: 800;
+    font-size: 2rem;
+    color: #F56A6A;
+    margin-bottom: 4px;
+    letter-spacing: -1px;
+  }
+  .lh-company {
+    font-weight: 700;
+    font-size: 1.1rem;
+    color: #333;
+  }
+  .lh-address {
+    font-size: 0.8rem;
+    color: #666;
+    max-width: 300px;
+    line-height: 1.4;
+    margin-top: 4px;
+  }
+  .report-type {
+    font-weight: 800;
+    font-size: 1.4rem;
+    color: #333;
+    text-align: right;
+  }
+  .report-date {
+    font-size: 0.85rem;
+    color: #666;
+    text-align: right;
+    margin-top: 4px;
+  }
+  .report-divider {
+    height: 3px;
+    background: #F56A6A;
+    margin: 10px 0 30px;
+  }
+  .report-section {
+    margin-bottom: 35px;
+    page-break-inside: avoid;
+  }
+  .section-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #333;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 8px;
+    margin-bottom: 15px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+  .info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px 30px;
+  }
+  .info-item {
+    display: flex;
+    border-bottom: 1px dashed #eee;
+    padding-bottom: 4px;
+  }
+  .info-label {
+    font-weight: 600;
+    color: #666;
+    width: 140px;
+    font-size: 0.85rem;
+  }
+  .info-value {
+    font-weight: 700;
+    color: #1a1a1a;
+    font-size: 0.85rem;
+  }
+  .status-tag {
+    color: #F56A6A;
+  }
+  .report-table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 10px;
+  }
+  .report-table th {
+    background: #f8f9fa;
+    color: #444;
+    font-weight: 700;
+    font-size: 0.75rem;
+    text-transform: uppercase;
+    padding: 10px;
+    text-align: left;
+    border: 1px solid #eee;
+  }
+  .report-table td {
+    padding: 10px;
+    font-size: 0.8rem;
+    border: 1px solid #eee;
+    vertical-align: top;
+  }
+  .task-badge {
+    font-weight: 700;
+    font-size: 0.7rem;
+    padding: 2px 6px;
+    border-radius: 4px;
+  }
+  .task-badge.done { color: #10b981; background: #ecfdf5; }
+  .task-badge.inprogress { color: #3b82f6; background: #eff6ff; }
+  .task-badge.todo { color: #f59e0b; background: #fffbeb; }
+
+  .evidence-gallery {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    margin-top: 15px;
+  }
+  .evidence-item {
+    border: 1px solid #eee;
+    padding: 8px;
+    border-radius: 4px;
+    page-break-inside: avoid;
+  }
+  .evidence-item img {
+    width: 100%;
+    height: 180px;
+    object-fit: cover;
+    border-radius: 2px;
+    margin-bottom: 8px;
+  }
+  .evidence-caption {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+  .evidence-caption strong {
+    font-size: 0.75rem;
+    color: #333;
+  }
+  .evidence-caption span {
+    font-size: 0.7rem;
+    color: #888;
+  }
+  .no-evidence {
+    font-style: italic;
+    color: #999;
+    font-size: 0.85rem;
+  }
+  .report-footer {
+    margin-top: 50px;
+    text-align: center;
+  }
+  .footer-line {
+    height: 1px;
+    background: #eee;
+    margin-bottom: 15px;
+  }
+  .footer-content p {
+    font-size: 0.7rem;
+    color: #999;
+    margin: 2px 0;
   }
 }
 

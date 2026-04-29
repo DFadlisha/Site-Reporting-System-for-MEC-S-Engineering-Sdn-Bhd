@@ -14,7 +14,7 @@ import "./Sidebar.css";
 const USER_NAV = [
   { to: "/dashboard",     icon: LayoutDashboard, label: "Dashboard" },
   { to: "/reports",       icon: ClipboardList,   label: "Daily Reports" },
-  { to: "/tasks",         icon: CheckSquare,     label: "Task Tracking" },
+  { to: "/tasks",         icon: CheckSquare,     label: "Project Tracking" },
   { to: "/issues",        icon: AlertTriangle,   label: "Issues" },
   { to: "/notifications", icon: Bell,            label: "Notifications" },
 ];
@@ -81,17 +81,25 @@ export default function Sidebar() {
 
       {/* Nav */}
       <nav className="sidebar-nav">
-        {(profile?.role === "admin" ? ADMIN_NAV : USER_NAV).map(({ to, icon: Icon, label }) => (
-          <NavLink
-            key={to}
-            to={to}
-            onClick={closeMobile}
-            className={({ isActive }) => `sidebar-link ${isActive ? "active" : ""}`}
-          >
-            <Icon size={18} />
-            {!collapsed && <span>{label}</span>}
-          </NavLink>
-        ))}
+        {(profile?.role === "admin" ? ADMIN_NAV : USER_NAV).map(({ to, icon: Icon, label }) => {
+          let displayLabel = label;
+          if (to === "/tasks") {
+            displayLabel = (profile?.role === "consultant" || profile?.role === "admin") 
+              ? "Project Tracking" 
+              : "Task Tracking";
+          }
+          return (
+            <NavLink
+              key={to}
+              to={to}
+              onClick={closeMobile}
+              className={({ isActive }) => `sidebar-link ${isActive ? "active" : ""}`}
+            >
+              <Icon size={18} />
+              {!collapsed && <span>{displayLabel}</span>}
+            </NavLink>
+          );
+        })}
       </nav>
 
       {/* Logout */}

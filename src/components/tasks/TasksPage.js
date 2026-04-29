@@ -250,9 +250,11 @@ export default function TasksPage() {
     )
   );
 
+  const pageTitle = (isConsultant || isAdmin) ? "Project Tracking" : "Task Tracking";
+
   return (
     <div>
-      <Topbar title="Task Tracking" />
+      <Topbar title={pageTitle} />
       <div className="page-body">
 
         {/* Projects strip */}
@@ -274,7 +276,10 @@ export default function TasksPage() {
                 visibleTasks.forEach(t => {
                   const key = t.projectId || '__none__';
                   const label = t.projectName || 'Unassigned Project';
-                  if (!grouped[key]) grouped[key] = { label, tasks: [] };
+                  if (!grouped[key]) {
+                    const projDoc = projects.find(p => p.id === key);
+                    grouped[key] = { label, location: projDoc?.location || '', tasks: [] };
+                  }
                   grouped[key].tasks.push(t);
                 });
 
@@ -288,23 +293,36 @@ export default function TasksPage() {
                       {/* Project header */}
                       <div style={{
                         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                        marginBottom: 12, padding: '10px 16px',
+                        marginBottom: 12, padding: '12px 16px',
                         background: 'var(--bg-elevated)', border: '1px solid var(--border)',
-                        borderRadius: 8, borderLeft: '3px solid var(--accent)'
+                        borderRadius: 8, borderLeft: '4px solid var(--accent)',
+                        boxShadow: 'var(--shadow-sm)'
                       }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                          <FolderOpen size={18} color="var(--accent)" />
-                          <span style={{ fontWeight: 700, fontSize: '1rem', color: 'var(--text-primary)' }}>{group.label}</span>
-                          <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', background: 'var(--bg-surface)', padding: '2px 8px', borderRadius: 10 }}>
-                            {done}/{groupTasks.length} done
-                          </span>
+                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <FolderOpen size={18} color="var(--accent)" />
+                            <span style={{ fontWeight: 800, fontSize: '1.05rem', color: 'var(--text-primary)' }}>{group.label}</span>
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                            {group.location && (
+                              <span style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 4 }}>
+                                <MapPin size={12} /> {group.location}
+                              </span>
+                            )}
+                            <span style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--accent)', background: 'var(--accent-dim)', padding: '1px 8px', borderRadius: 10 }}>
+                              {done}/{groupTasks.length} Tasks Completed
+                            </span>
+                          </div>
                         </div>
                         {/* Mini progress bar */}
-                        <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                          <div style={{ width: 100, height: 6, background: 'var(--border)', borderRadius: 99 }}>
-                            <div style={{ width: `${pct}%`, height: '100%', background: pct === 100 ? 'var(--success)' : 'var(--accent)', borderRadius: 99, transition: 'width 0.3s' }} />
+                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
+                            <div style={{ width: 120, height: 8, background: 'var(--bg-base)', borderRadius: 99, border: '1px solid var(--border)' }}>
+                              <div style={{ width: `${pct}%`, height: '100%', background: pct === 100 ? 'var(--success)' : 'var(--accent)', borderRadius: 99, transition: 'width 0.4s' }} />
+                            </div>
+                            <span style={{ fontSize: '0.85rem', fontWeight: 800, color: 'var(--text-primary)', minWidth: 40, textAlign: 'right' }}>{pct}%</span>
                           </div>
-                          <span style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--text-secondary)' }}>{pct}%</span>
+                          <span style={{ fontSize: '0.65rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: 1 }}>Overall Progress</span>
                         </div>
                       </div>
 
