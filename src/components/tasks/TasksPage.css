@@ -365,7 +365,7 @@
 }
 
 .visily-input::placeholder {
-  color: #999;
+  color: var(--text-muted, #999);
 }
 
 .visily-input:focus {
@@ -378,6 +378,11 @@ select.visily-input {
   background-repeat: no-repeat;
   background-position: right 14px top 50%;
   background-size: 10px auto;
+}
+
+select.visily-input option {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
 }
 
 .visily-submit-btn {

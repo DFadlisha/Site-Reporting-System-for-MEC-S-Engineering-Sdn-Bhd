@@ -741,9 +741,9 @@ export default function TasksPage() {
               </div>
 
               <div style={{ marginTop: 8 }}>
-                <select className="visily-input" style={{ color: pForm.priority === "" ? "#999" : "inherit" }} value={pForm.priority} onChange={(e) => setPForm({ ...pForm, priority: e.target.value })}>
+                <select className="visily-input" style={{ color: pForm.priority === "" ? "var(--text-muted)" : "var(--text-primary)" }} value={pForm.priority} onChange={(e) => setPForm({ ...pForm, priority: e.target.value })}>
                   <option value="" disabled hidden>Priority</option>
-                  {PRIORITY_OPTIONS.map((p) => <option key={p} value={p} style={{color: 'var(--text-primary)'}}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>)}
+                  {PRIORITY_OPTIONS.map((p) => <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>)}
                 </select>
               </div>
 
@@ -756,13 +756,13 @@ export default function TasksPage() {
                   <input className="visily-input" value={tForm.title} onChange={(e) => setTForm({ ...tForm, title: e.target.value })} placeholder="Task Name" />
                   
                   {supervisors.length > 0 ? (
-                    <select className="visily-input" style={{ color: tForm.assignedToUid === "" ? "#999" : "inherit" }} value={tForm.assignedToUid} onChange={(e) => {
+                    <select className="visily-input" style={{ color: tForm.assignedToUid === "" ? "var(--text-muted)" : "var(--text-primary)" }} value={tForm.assignedToUid} onChange={(e) => {
                       const sv = supervisors.find(s => s.uid === e.target.value);
                       setTForm({ ...tForm, assignedTo: sv ? sv.name : "", assignedToUid: e.target.value });
                     }}>
                       <option value="" disabled hidden>Assigned To</option>
                       {supervisors.map((sv) => (
-                        <option key={sv.uid} value={sv.uid} style={{color: 'var(--text-primary)'}}>{sv.name}</option>
+                        <option key={sv.uid} value={sv.uid}>{sv.name}</option>
                       ))}
                     </select>
                   ) : (
@@ -774,7 +774,7 @@ export default function TasksPage() {
                     <input className="visily-input" value={tForm.site} onChange={(e) => setTForm({ ...tForm, site: e.target.value })} placeholder="Site" />
                   </div>
                   
-                  <select className="visily-input" style={{ color: tForm.status === "" ? "#999" : "inherit" }} value={tForm.status} onChange={(e) => setTForm({ ...tForm, status: e.target.value })}>
+                  <select className="visily-input" style={{ color: tForm.status === "" ? "var(--text-muted)" : "var(--text-primary)" }} value={tForm.status} onChange={(e) => setTForm({ ...tForm, status: e.target.value })}>
                     <option value="" disabled hidden>Status</option>
                     {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s === "inprogress" ? "In Progress" : s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
                   </select>

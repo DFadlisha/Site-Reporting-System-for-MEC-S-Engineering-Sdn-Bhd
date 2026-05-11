@@ -1,5 +1,5 @@
 // public/sw.js
-const CACHE_NAME = 'sprs-pwa-cache-v2';
+const CACHE_NAME = 'sprs-pwa-cache-v3'; // Bumped to v3
 const urlsToCache = [
   '/',
   '/index.html',
@@ -18,54 +18,38 @@ self.addEventListener('install', event => {
   self.skipWaiting();
 });
 
-// Cache and return requests
+// Network-First Strategy: Try network, fallback to cache
 self.addEventListener('fetch', event => {
-  // Only intercept GET requests
   if (event.request.method !== 'GET') return;
-  
-  // Skip cross-origin requests, like Firebase API calls
   if (!event.request.url.startsWith(self.location.origin)) return;
 
   event.respondWith(
-    caches.match(event.request)
-      .then(response => {
-        // Return response from cache if found
-        if (response) {
-          return response;
+    fetch(event.request)
+      .then(networkResponse => {
+        // If network request succeeds, update the cache and return response
+        if (networkResponse && networkResponse.status === 200 && networkResponse.type === 'basic') {
+          const responseToCache = networkResponse.clone();
+          caches.open(CACHE_NAME).then(cache => {
+            cache.put(event.request, responseToCache);
+          });
         }
-
-        // Fetch from network
-        return fetch(event.request).then(
-          function(networkResponse) {
-            if(!networkResponse || networkResponse.status !== 200 || networkResponse.type !== 'basic') {
-              return networkResponse;
-            }
-
-            // Clone the response to store in cache
-            var responseToCache = networkResponse.clone();
-
-            caches.open(CACHE_NAME)
-              .then(function(cache) {
-                cache.put(event.request, responseToCache);
-              });
-
-            return networkResponse;
-          }
-        ).catch(function() {
-          // If network completely fails (offline), we could return a fallback page here
-        });
+        return networkResponse;
+      })
+      .catch(() => {
+        // If network fails, try the cache
+        return caches.match(event.request);
       })
   );
 });
 
-// Update a service worker
+// Activate: Clean up old caches
 self.addEventListener('activate', event => {
   const cacheWhitelist = [CACHE_NAME];
   event.waitUntil(
     caches.keys().then(cacheNames => {
       return Promise.all(
         cacheNames.map(cacheName => {
-          if (cacheWhitelist.indexOf(cacheName) === -1) {
+          if (!cacheWhitelist.includes(cacheName)) {
             return caches.delete(cacheName);
           }
         })
