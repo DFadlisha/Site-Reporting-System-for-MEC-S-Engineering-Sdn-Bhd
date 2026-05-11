@@ -462,39 +462,84 @@ export default function TasksPage() {
 
         /* ── CONSULTANT / ADMIN VIEW: Original split-pane ─────────── */
         <>
-        {/* Project Selector Header — clean dropdown style */}
-        <div className="d-flex align-items-center justify-content-between mb-4 flex-wrap gap-3">
-          <div className="d-flex align-items-center gap-2 flex-wrap">
-            <FolderOpen size={18} color="var(--accent)" />
+        {/* ── Professional Toolbar Bar ── */}
+        <div className="tk-toolbar-card" style={{
+          background: 'var(--bg-card)',
+          border: '1px solid var(--border)',
+          borderRadius: 'var(--radius-lg)',
+          padding: '16px 20px',
+          marginBottom: 20,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          flexWrap: 'wrap',
+          gap: 12,
+        }}>
+          {/* Left: Project Selector */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: '1 1 200px' }}>
+            <div style={{
+              width: 36, height: 36,
+              background: 'var(--accent-dim)',
+              borderRadius: 'var(--radius-md)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              flexShrink: 0,
+            }}>
+              <FolderOpen size={18} color="var(--accent)" />
+            </div>
             <select
-              className="form-control form-control-sm"
-              style={{ minWidth: 220, maxWidth: 320, background: 'var(--bg-elevated)', border: '1px solid var(--border)', color: 'var(--text-primary)', borderRadius: 8, fontWeight: 600, cursor: 'pointer' }}
+              className="form-control"
+              style={{
+                minWidth: 200, maxWidth: 280,
+                background: 'var(--bg-elevated)',
+                border: '1px solid var(--border)',
+                color: 'var(--text-primary)',
+                borderRadius: 8,
+                fontWeight: 600,
+                fontSize: '0.88rem',
+                padding: '8px 14px',
+                cursor: 'pointer',
+              }}
               value={selProject?.id || ""}
               onChange={(e) => {
                 if (!e.target.value) { setSelProject(null); }
                 else { setSelProject(projects.find(p => p.id === e.target.value) || null); }
               }}
             >
-              <option value="">All Projects</option>
+              <option value="">All Projects ({projects.length})</option>
               {projects.map((p) => (
                 <option key={p.id} value={p.id}>{p.name}</option>
               ))}
             </select>
             {selProject && canManageProjects && (
-              <button className="btn btn-sm btn-outline-danger" style={{ borderColor: 'var(--danger)', color: 'var(--danger)', borderRadius: 8 }} onClick={() => handleDeleteProject(selProject.id)}>
-                <Trash2 size={13} /> Delete
+              <button className="btn btn-sm" style={{
+                background: 'rgba(248,81,73,0.1)', color: 'var(--danger)',
+                border: '1px solid rgba(248,81,73,0.2)', borderRadius: 8,
+                padding: '6px 10px', display: 'flex', alignItems: 'center', gap: 4,
+              }} onClick={() => handleDeleteProject(selProject.id)}>
+                <Trash2 size={13} />
               </button>
             )}
           </div>
-          <div className="d-flex gap-2">
-            {canManageProjects && (
-              <button className="btn btn-primary btn-sm" style={{ borderRadius: 8 }} onClick={() => setShowProjectModal(true)}>
-                <Plus size={14} /> New Project
+
+          {/* Right: Action Buttons */}
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+            {canManageTasks && selProject && (
+              <button className="btn btn-sm" style={{
+                background: 'var(--bg-elevated)', color: 'var(--text-primary)',
+                border: '1px solid var(--border)', borderRadius: 20,
+                fontWeight: 600, fontSize: '0.8rem', padding: '7px 16px',
+              }} onClick={() => setShowAddTaskModal(true)}>
+                <Plus size={14} /> Add Task
               </button>
             )}
-            {canManageTasks && selProject && (
-              <button className="btn btn-sm" style={{ background: '#F56A6A', color: '#fff', border: 'none', borderRadius: 8 }} onClick={() => setShowAddTaskModal(true)}>
-                <Plus size={14} /> Add Task
+            {canManageProjects && (
+              <button className="btn btn-sm" style={{
+                background: 'var(--accent)', color: '#fff',
+                border: 'none', borderRadius: 20,
+                fontWeight: 700, fontSize: '0.8rem', padding: '7px 18px',
+                boxShadow: '0 2px 8px rgba(254,111,111,0.3)',
+              }} onClick={() => setShowProjectModal(true)}>
+                <Plus size={14} /> New Project
               </button>
             )}
           </div>
@@ -505,57 +550,107 @@ export default function TasksPage() {
         <div className="tk-split-layout">
           {/* LEFT PANE: Task List */}
           <div className="tk-left-pane">
-            <div className="tk-search-wrapper">
-              <Search size={16} color="#999" />
+            {/* Search Bar */}
+            <div className="tk-search-wrapper" style={{
+              background: 'var(--bg-elevated)',
+              border: '1px solid var(--border)',
+              borderRadius: 10,
+              padding: '9px 14px',
+              display: 'flex', alignItems: 'center', gap: 10,
+            }}>
+              <Search size={15} color="var(--text-muted)" />
               <input 
                 type="text" 
-                placeholder="Search tasks, assignee, or project..." 
+                placeholder="Search tasks..." 
                 className="tk-search-input" 
+                style={{ border: 'none', background: 'transparent', outline: 'none', fontSize: '0.85rem', color: 'var(--text-primary)', width: '100%' }}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
-              <Filter size={16} color="#999" style={{ cursor: 'pointer' }} />
+              {searchQuery && (
+                <X size={14} color="var(--text-muted)" style={{ cursor: 'pointer', flexShrink: 0 }} onClick={() => setSearchQuery("")} />
+              )}
             </div>
 
-            <div className="tk-filter-tabs" style={{ display: 'flex', gap: '20px', borderBottom: '1px solid #eaeaea', marginBottom: '8px' }}>
-              {["todo", "inprogress", "done"].map((s) => (
-                <button
-                  key={s}
-                  style={{
-                    background: 'none', border: 'none', padding: '8px 4px', fontSize: '0.8rem', fontWeight: 600,
-                    color: taskFilter === s ? '#F56A6A' : '#999',
-                    cursor: 'pointer', borderBottom: `2px solid ${taskFilter === s ? '#F56A6A' : 'transparent'}`,
-                    textTransform: 'uppercase'
-                  }}
-                  onClick={() => setTaskFilter(taskFilter === s ? "all" : s)}
-                >
-                  {s === "inprogress" ? "In Progress" : s === "todo" ? "To do" : "Done"}
-                </button>
-              ))}
+            {/* Filter Tabs */}
+            <div style={{
+              display: 'flex', gap: 4, padding: '4px',
+              background: 'var(--bg-elevated)', borderRadius: 10,
+              marginBottom: 12, marginTop: 8,
+              border: '1px solid var(--border)',
+            }}>
+              {[
+                { key: "all", label: "All" },
+                { key: "todo", label: "To Do" },
+                { key: "inprogress", label: "Active" },
+                { key: "done", label: "Done" },
+              ].map(({ key, label }) => {
+                const count = key === "all" ? filteredTasks.length : visibleTasks.filter(t => t.status === key).length;
+                return (
+                  <button
+                    key={key}
+                    style={{
+                      flex: 1,
+                      background: taskFilter === key ? 'var(--accent)' : 'transparent',
+                      color: taskFilter === key ? '#fff' : 'var(--text-secondary)',
+                      border: 'none',
+                      borderRadius: 8,
+                      padding: '7px 8px',
+                      fontSize: '0.75rem',
+                      fontWeight: 700,
+                      cursor: 'pointer',
+                      transition: 'all 0.15s',
+                      display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 4,
+                    }}
+                    onClick={() => setTaskFilter(key)}
+                  >
+                    {label}
+                    <span style={{
+                      fontSize: '0.65rem',
+                      background: taskFilter === key ? 'rgba(255,255,255,0.25)' : 'var(--bg-base)',
+                      padding: '1px 6px',
+                      borderRadius: 20,
+                      fontWeight: 800,
+                    }}>{count}</span>
+                  </button>
+                );
+              })}
             </div>
 
+            {/* Task List */}
             <div className="tk-task-list">
               {filteredTasks.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '40px 20px', color: '#999', fontSize: '0.9rem' }}>
-                  No tasks found
+                <div style={{ textAlign: 'center', padding: '40px 20px', color: 'var(--text-secondary)' }}>
+                  <CheckSquare size={32} style={{ opacity: 0.2, marginBottom: 8 }} />
+                  <div style={{ fontWeight: 600, fontSize: '0.9rem' }}>No tasks found</div>
+                  <div style={{ fontSize: '0.8rem', marginTop: 4 }}>Try adjusting your filter or search</div>
                 </div>
               ) : (
-                filteredTasks.map((task) => (
-                  <div key={task.id} className={`tk-card-list-item ${selectedTask?.id === task.id ? 'active' : ''}`} onClick={() => setSelectedTask(task)}>
-                    <div className="tk-card-img-placeholder"></div>
-                    <h3 className="tk-card-title">{task.title}</h3>
-                    <div className="tk-card-badges">
-                      <span className={`badge`} style={{ background: '#fff0f0', color: '#F56A6A' }}>{task.priority ? task.priority.charAt(0).toUpperCase() + task.priority.slice(1) : 'Medium'}</span>
-                      <span className={`badge`} style={{ background: '#e0f2fe', color: '#0284c7' }}>{task.status === "inprogress" ? "In Progress" : task.status === "todo" ? "To do" : "Done"}</span>
-                    </div>
-                    <div className="tk-card-footer">
-                      <div className="tk-card-meta" style={{ fontSize: '0.75rem', color: 'var(--text-secondary)' }}>
-                        {task.assignedTo && <span><User size={11} /> {task.assignedTo}</span>}
-                        {task.dueDate && <span style={{ marginLeft: 8 }}><Calendar size={11} /> {task.dueDate}</span>}
+                filteredTasks.map((task) => {
+                  const isActive = selectedTask?.id === task.id;
+                  const statusColor = task.status === 'done' ? 'var(--success)' : task.status === 'inprogress' ? 'var(--info)' : 'var(--warning)';
+                  return (
+                    <div key={task.id} className={`tk-card-list-item ${isActive ? 'active' : ''}`} onClick={() => setSelectedTask(task)}
+                      style={{
+                        borderLeft: `3px solid ${isActive ? 'var(--accent)' : statusColor}`,
+                        transition: 'all 0.15s',
+                      }}
+                    >
+                      <h3 className="tk-card-title" style={{ fontSize: '0.95rem', marginBottom: 6 }}>{task.title}</h3>
+                      <div className="tk-card-badges" style={{ marginBottom: 8 }}>
+                        <span className={`badge badge-${task.priority || 'medium'}`}>{task.priority ? task.priority.charAt(0).toUpperCase() + task.priority.slice(1) : 'Medium'}</span>
+                        <span className={`badge badge-${task.status || 'todo'}`}>{task.status === "inprogress" ? "In Progress" : task.status === "todo" ? "To Do" : "Done"}</span>
+                      </div>
+                      <div className="tk-card-footer" style={{ borderTop: 'none', paddingTop: 0 }}>
+                        <div className="tk-card-meta" style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 12 }}>
+                          {task.assignedTo && <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><User size={11} /> {task.assignedTo}</span>}
+                          {task.dueDate && <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Calendar size={11} /> {task.dueDate}</span>}
+                          {task.projectName && <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><FolderOpen size={11} /> {task.projectName}</span>}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                ))
+                  );
+                })
               )}
             </div>
           </div>
@@ -631,13 +726,14 @@ export default function TasksPage() {
         <div className="modal-overlay" onClick={() => setShowProjectModal(false)}>
           <div className="sp-modal" style={{ maxWidth: 480, padding: 32, borderRadius: 12, background: 'var(--bg-surface)', border: '1px solid var(--border)', boxShadow: 'var(--shadow-lg)' }} onClick={(e) => e.stopPropagation()}>
             <div className="d-flex justify-content-between align-items-center mb-4">
-              <h5 style={{ fontWeight: 700, margin: 0, color: 'var(--text-primary)' }}>Project Form</h5>
+              <h5 style={{ fontWeight: 700, margin: 0, color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Project Form</h5>
             </div>
             <form onSubmit={handleCreateProjectWithTask} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
               {/* ── Project Section ── */}
               <input className="visily-input" required value={pForm.name} onChange={(e) => setPForm({ ...pForm, name: e.target.value })} placeholder="Project Name" />
               <input className="visily-input" value={pForm.description} onChange={(e) => setPForm({ ...pForm, description: e.target.value })} placeholder="Description" />
+              <input className="visily-input" value={pForm.location} onChange={(e) => setPForm({ ...pForm, location: e.target.value })} placeholder="Location (e.g. Penang, Kuala Lumpur)" />
               
               <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
                 <input type="text" onFocus={(e) => e.target.type = 'date'} onBlur={(e) => {if(!e.target.value) e.target.type='text'}} className="visily-input" value={pForm.startDate} onChange={(e) => setPForm({ ...pForm, startDate: e.target.value })} placeholder="Start Date" />
@@ -647,13 +743,13 @@ export default function TasksPage() {
               <div style={{ marginTop: 8 }}>
                 <select className="visily-input" style={{ color: pForm.priority === "" ? "#999" : "inherit" }} value={pForm.priority} onChange={(e) => setPForm({ ...pForm, priority: e.target.value })}>
                   <option value="" disabled hidden>Priority</option>
-                  {PRIORITY_OPTIONS.map((p) => <option key={p} value={p} style={{color: '#111'}}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>)}
+                  {PRIORITY_OPTIONS.map((p) => <option key={p} value={p} style={{color: 'var(--text-primary)'}}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>)}
                 </select>
               </div>
 
               {/* ── Task Section ── */}
               <div style={{ marginTop: 8 }}>
-                <h6 style={{ fontWeight: 700, marginBottom: 16, color: '#111' }}>
+                <h6 style={{ fontWeight: 700, marginBottom: 16, color: 'var(--text-primary)' }}>
                   Task Section
                 </h6>
                 <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
@@ -666,7 +762,7 @@ export default function TasksPage() {
                     }}>
                       <option value="" disabled hidden>Assigned To</option>
                       {supervisors.map((sv) => (
-                        <option key={sv.uid} value={sv.uid} style={{color: '#111'}}>{sv.name}</option>
+                        <option key={sv.uid} value={sv.uid} style={{color: 'var(--text-primary)'}}>{sv.name}</option>
                       ))}
                     </select>
                   ) : (

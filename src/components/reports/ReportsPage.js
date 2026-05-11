@@ -8,7 +8,8 @@ import { useLocation } from "react-router-dom";
 import Topbar from "../shared/Topbar";
 import {
   createReport, subscribeReports, updateReport,
-  subscribeProjects, createNotification, subscribeTasks
+  subscribeProjects, createNotification, subscribeTasks,
+  getSystemUsers
 } from "../../firebase/services";
 import { useAuth } from "../../contexts/AuthContext";
 import toast from "react-hot-toast";
@@ -112,6 +113,19 @@ export default function ReportsPage() {
         },
         photoFiles
       );
+      // Notify all consultants about new report submission
+      try {
+        const allUsers = await getSystemUsers();
+        const consultants = allUsers.filter(u => u.role === 'consultant');
+        for (const c of consultants) {
+          await createNotification(
+            c.uid,
+            `New daily report submitted: "${form.title}" by ${profile?.name || user?.email}. Awaiting your review.`,
+            "info"
+          );
+        }
+      } catch (notifErr) { console.error('Notification error:', notifErr); }
+
       toast.success("Daily report submitted!");
       setShowModal(false);
       setForm({ title: "", projectId: "", projectName: "", date: "", weather: "", description: "", workforce: "", materials: "", equipment: "", gpsLat: "", gpsLng: "", issues: "" });
@@ -417,9 +431,36 @@ export default function ReportsPage() {
                              </h6>
                           </div>
                           {activeReport.reviewComment && (
-                             <div style={{ fontSize: '0.85rem', color: 'var(--text-primary)', padding: '12px', background: 'var(--bg-surface)', borderLeft: `3px solid ${activeReport.status === 'approved' ? 'var(--success)' : 'var(--danger)'}`, borderRadius: 4 }}>
+                             <div style={{ fontSize: '0.85rem', color: 'var(--text-primary)', padding: '12px', background: 'var(--bg-surface)', borderLeft: `3px solid ${activeReport.status === 'approved' ? 'var(--success)' : 'var(--danger)'}`, borderRadius: 4, marginBottom: 12 }}>
+                                <div style={{ fontSize: '0.72rem', fontWeight: 700, color: 'var(--text-secondary)', textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>Consultant Comment</div>
                                 {activeReport.reviewComment}
                              </div>
+                          )}
+                          {/* Resubmit button for rejected reports — Supervisor only */}
+                          {canSubmit && activeReport.status === 'rejected' && (
+                             <button
+                               className="visily-coral-btn mt-2"
+                               style={{ fontSize: '0.85rem', padding: '8px 20px' }}
+                               onClick={() => {
+                                 setForm({
+                                   title: activeReport.title || '',
+                                   projectId: activeReport.projectId || '',
+                                   projectName: activeReport.projectName || '',
+                                   date: '',
+                                   weather: activeReport.weather || '',
+                                   description: '',
+                                   workforce: activeReport.workforce || '',
+                                   materials: activeReport.materials || '',
+                                   equipment: activeReport.equipment || '',
+                                   gpsLat: activeReport.gpsLat || '',
+                                   gpsLng: activeReport.gpsLng || '',
+                                   issues: '',
+                                 });
+                                 setShowModal(true);
+                               }}
+                             >
+                               <Plus size={14} style={{ marginRight: 6 }} /> Resubmit Report
+                             </button>
                           )}
                        </div>
                     )}

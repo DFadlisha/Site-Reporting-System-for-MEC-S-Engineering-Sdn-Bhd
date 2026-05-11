@@ -58,6 +58,21 @@ export default function IssuesPage() {
         reportedByUid: profile?.uid || "", // Save UID for notifications
         reportedByRole: profile?.role,
       }, photo);
+
+      // Notify all consultants about the new issue
+      try {
+        const { getSystemUsers } = await import("../../firebase/services");
+        const allUsers = await getSystemUsers();
+        const consultants = allUsers.filter(u => u.role === 'consultant');
+        for (const c of consultants) {
+          await createNotification(
+            c.uid,
+            `New issue reported: "${form.title}" (${form.priority} priority) at ${project?.name || 'Unknown site'}. Reported by ${profile?.name}.`,
+            form.priority === 'high' ? 'warning' : 'info'
+          );
+        }
+      } catch (notifErr) { console.error('Issue notification error:', notifErr); }
+
       toast.success("Issue reported successfully");
       setShowModal(false);
       setForm({ title: "", description: "", priority: "medium", location: "", projectId: "" });

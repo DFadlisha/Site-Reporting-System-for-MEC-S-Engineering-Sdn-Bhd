@@ -356,6 +356,7 @@
   padding: 10px 14px;
   border: 1px solid var(--border);
   border-radius: 6px;
+  font-family: var(--font-body);
   font-size: 0.95rem;
   background-color: var(--bg-elevated);
   color: var(--text-primary);
@@ -385,6 +386,7 @@ select.visily-input {
   border: none;
   border-radius: 6px;
   padding: 8px 24px;
+  font-family: var(--font-body);
   font-weight: 600;
   font-size: 0.95rem;
   cursor: pointer;

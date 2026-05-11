@@ -652,14 +652,14 @@ export default function Dashboard() {
         {selectedExportProject && (
           <div className="modal-overlay d-print-none" onClick={() => setSelectedExportProject(null)}>
             <div className="sp-modal sp-modal-wide" onClick={(e) => e.stopPropagation()}>
-              <div className="sp-modal-header">
-                <h3 className="sp-modal-title">{selectedExportProject.name} — Project Report</h3>
+               <div className="sp-modal-header">
+                <h3 className="sp-modal-title" style={{ marginBottom: 0, fontFamily: 'var(--font-display)' }}>{selectedExportProject.name} — Report</h3>
                 <div className="sp-modal-actions">
-                   <button className="btn btn-primary btn-sm" onClick={() => window.print()}>
-                     <Download size={16} /> Export PDF
+                   <button className="btn btn-primary btn-sm" style={{ borderRadius: 20, padding: '7px 18px', fontWeight: 700, fontSize: '0.8rem' }} onClick={() => window.print()}>
+                     <Download size={14} /> Export PDF
                    </button>
                    <button className="btn-close-modal" onClick={() => setSelectedExportProject(null)}>
-                     <X size={20} />
+                     <X size={18} />
                    </button>
                 </div>
               </div>
@@ -680,7 +680,7 @@ export default function Dashboard() {
                       <div className="sp-mini-progress">
                         <div className="sp-mini-fill" style={{ width: `${selectedExportProject.progress || 0}%` }} />
                       </div>
-                      <span className="sp-item-value">{selectedExportProject.progress || 0}%</span>
+                      <span className="sp-item-value" style={{ fontSize: '0.9rem' }}>{selectedExportProject.progress || 0}%</span>
                     </div>
                   </div>
                   <div className="sp-grid-item">
@@ -702,24 +702,24 @@ export default function Dashboard() {
                       <tr>
                         <th>Task Title</th>
                         <th>Assigned Worker</th>
-                        <th>Status</th>
+                        <th style={{ textAlign: 'center' }}>Status</th>
                         <th>Date Created</th>
                       </tr>
                     </thead>
                     <tbody>
                       {tasks.filter(t => t.projectId === selectedExportProject.id).length === 0 ? (
-                        <tr><td colSpan="4" className="text-center py-4 text-muted">No tasks assigned to this project yet.</td></tr>
+                        <tr><td colSpan="4" style={{ textAlign: 'center', padding: '30px 16px', color: 'var(--text-secondary)', fontStyle: 'italic' }}>No tasks assigned to this project yet.</td></tr>
                       ) : (
                         tasks.filter(t => t.projectId === selectedExportProject.id).map(t => (
                           <tr key={t.id}>
-                            <td className="fw-semibold">{t.title}</td>
-                            <td>{t.assignedTo || "Unassigned"}</td>
-                            <td>
-                              <span className={`badge badge-${t.status || 'todo'}`}>
-                                {t.status}
+                            <td style={{ fontWeight: 600 }}>{t.title}</td>
+                            <td style={{ color: 'var(--text-secondary)' }}>{t.assignedTo || "Unassigned"}</td>
+                            <td style={{ textAlign: 'center' }}>
+                              <span className={`badge badge-${t.status || 'todo'}`} style={{ textTransform: 'capitalize' }}>
+                                {t.status === 'inprogress' ? 'In Progress' : t.status === 'todo' ? 'To Do' : t.status === 'done' ? 'Done' : t.status}
                               </span>
                             </td>
-                            <td className="text-muted small">
+                            <td style={{ color: 'var(--text-secondary)', fontSize: '0.8rem' }}>
                               {t.createdAt?.toDate ? new Date(t.createdAt.toDate()).toLocaleDateString() : 'N/A'}
                             </td>
                           </tr>
