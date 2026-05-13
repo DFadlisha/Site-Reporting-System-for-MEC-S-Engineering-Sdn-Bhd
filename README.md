@@ -1,264 +1,167 @@
 # 🏗️ SPRS — Site Progress Reporting System
-### MEC's Engineering Sdn. Bhd.
+### MEC'S Engineering Sdn. Bhd. | Final Year Project (PSM 2)
 
-A full-stack, real-time web application for construction site monitoring built with **React.js** and **Firebase**.
-
----
-
-## 📋 Features
-
-| Module | Roles | Description |
-|---|---|---|
-| **Auth** | All | Register / Login with role assignment (Consultant / Supervisor) |
-| **Dashboard** | All | Live stats, charts, project overview |
-| **Daily Reports** | All | Supervisors submit; Consultants approve/reject |
-| **Task Tracking** | All | Consultants create tasks; Supervisors update status |
-| **Issue Tracker** | All | Log and resolve site issues |
-| **Notifications** | All | Real-time alerts for report approvals, rejections |
-| **UI & Theming** | All | Clean light mode by default, integrated dark mode toggle, dynamic chart colors |
-| **Mobile Ready (PWA)** | All | Progressive Web App support, off-canvas mobile sidebar, device status bar theme syncing |
+A comprehensive, enterprise-grade site management and progress reporting ecosystem designed for modern construction workflows. SPRS streamlines the bridge between site-level execution and consultant-level oversight through real-time data synchronization, automated forecasting, and professional reporting.
 
 ---
 
-## 🎨 Design System
+## 🌟 Key Pillars
 
-### Typography
-- **Display Font**: `Syne` (used for headings, titles, and logos)
-- **Body Font**: `DM Sans` (used for general text, forms, and UI elements)
+### 📊 Project Intelligence
+*   **Real-time Dashboards**: Visualized progress tracking using Chart.js and Recharts.
+*   **Project Lifecycle**: Manage projects from initial clearing to final handover with status-based filtering.
+*   **Inventory Forecasting**: An intelligent forecasting engine (E-IMS) that predicts material shortages based on active task loads.
 
-### Theme Colors
-The application uses a dynamic theme system with centralized CSS variables, supporting both vivid **Light** and deep **Dark** modes.
+### 📝 Field Reporting
+*   **Rich Daily Logs**: Track weather, workforce, equipment, and materials with integrated photo uploads.
+*   **Approval Workflow**: Structured resubmission and review cycle between Site Supervisors and Consultants.
+*   **Issue Tracker**: Log site incidents with severity levels and track them until resolution.
 
-**Brand Colors**
-- **Accent (Coral)**: `#fe6f6f` (Primary buttons, highlights, active states)
-- **Accent Light**: `#ff8585`
+### 🔐 Enterprise Governance
+*   **Role-Based Access (RBAC)**: Strict separation of concerns for Administrators, Consultants, and Supervisors.
+*   **Domain Restriction**: Secure registration restricted to `@mecs` staff.
+*   **Admin Audit Logs**: Full transparency on system changes and user approvals.
 
-**Light Theme Palette**
-- **Backgrounds**: Base `#f8fafc`, Surface/Card `#ffffff`
-- **Text**: Primary `#0f172a`, Secondary `#475569`, Muted `#94a3b8`
-- **Borders**: Base `#e2e8f0`, Strong `#cbd5e1`
-
-**Dark Theme Palette**
-- **Backgrounds**: Base `#0d1117`, Surface `#161b22`, Elevated `#21262d`, Card `#1c2128`
-- **Text**: Primary `#e6edf3`, Secondary `#8b949e`, Muted `#484f58`
-- **Borders**: Base `rgba(255,255,255,0.08)`, Strong `rgba(255,255,255,0.15)`
-
-**Semantic Colors (Light / Dark)**
-- **Success**: `#10b981` / `#3fb950`
-- **Warning**: `#f59e0b` / `#d29922`
-- **Danger**: `#ef4444` / `#f85149`
-- **Info**: `#3b82f6` / `#58a6ff`
+### 📱 Modern Engineering
+*   **PWA Ready**: Installable on mobile devices with offline capabilities and push notification support.
+*   **Dynamic Theming**: Premium UI featuring "Syne" display typography and a vivid Dark/Light mode engine.
 
 ---
 
-## 🚀 Quick Start
+## 🛠️ Technical Architecture
+
+| Layer | Technology |
+|---|---|
+| **Frontend** | React 18, React Router 6, Bootstrap 5 |
+| **State & Auth** | Firebase Authentication, Context API |
+| **Database** | Cloud Firestore (Real-time NoSQL) |
+| **Serverless** | Firebase Functions (Forecasting, Notifications) |
+| **Storage** | Firebase Storage (Media Assets) |
+| **Messaging** | Firebase Cloud Messaging (FCM) |
+| **Visuals** | Recharts, Lucide React, CSS Variables |
+
+---
+
+## 📂 Project Structure
+
+```text
+sprs/
+├── functions/              # Firebase Cloud Functions (Forecasting, Logistics)
+├── public/                 # Static assets & PWA Manifest
+├── src/
+│   ├── components/         # Feature-based UI components (Auth, Dashboard, Reports, etc.)
+│   ├── contexts/           # React Contexts (Auth, Theme)
+│   ├── firebase/           # Configuration and Service Layer (CRUD)
+│   ├── hooks/              # Custom React hooks
+│   ├── App.js              # Routing & Layout definitions
+│   └── index.css           # Global Design System (CSS Variables)
+├── firestore.rules         # Database Security Rules
+└── firebase.json           # Hosting & Services Configuration
+```
+
+---
+
+## 🚀 Deployment & Setup
 
 ### Prerequisites
-- Node.js v18+ — https://nodejs.org
-- A Google account (for Firebase)
+*   Node.js (v18.x or higher)
+*   Firebase CLI (`npm install -g firebase-tools`)
 
----
-
-### Step 1 — Create Firebase Project
-
-1. Go to **https://console.firebase.google.com**
-2. Click **"Add project"** → name it `sprs-mecs` → Continue
-3. Disable Google Analytics (optional) → **Create project**
-
----
-
-### Step 2 — Enable Firebase Services
-
-#### Authentication
-1. Left sidebar → **Build → Authentication**
-2. Click **"Get started"**
-3. Under **Sign-in method**, enable **Email/Password** → Save
-
-#### Firestore Database
-1. Left sidebar → **Build → Firestore Database**
-2. Click **"Create database"**
-3. Choose **"Start in test mode"** → Next
-4. Select region: `asia-southeast1 (Singapore)` → **Enable**
-
-#### Storage
-1. Left sidebar → **Build → Storage**
-2. Click **"Get started"**
-3. Choose **"Start in test mode"** → Next → **Done**
-
----
-
-### Step 3 — Get Firebase Config
-
-1. Go to **Project Settings** (gear icon ⚙️ top left)
-2. Scroll to **"Your apps"** → Click **`</>`** (Web)
-3. Register app name: `sprs-web` → **Register app**
-4. Copy the `firebaseConfig` object shown
-
----
-
-### Step 4 — Add Config to the Project
-
-Open `src/firebase/config.js` and replace the placeholder values:
-
-```js
+### 1. Environment Configuration
+Create a `.env` file or update `src/firebase/config.js` with your Firebase credentials:
+```javascript
 const firebaseConfig = {
-  apiKey:            "AIzaSy...",        // ← paste your values
-  authDomain:        "sprs-mecs.firebaseapp.com",
-  projectId:         "sprs-mecs",
-  storageBucket:     "sprs-mecs.appspot.com",
-  messagingSenderId: "123456789",
-  appId:             "1:123456789:web:abc123",
+  apiKey: "YOUR_API_KEY",
+  authDomain: "sprs-mecs.firebaseapp.com",
+  projectId: "sprs-mecs",
+  storageBucket: "sprs-mecs.appspot.com",
+  messagingSenderId: "YOUR_ID",
+  appId: "YOUR_APP_ID"
 };
 ```
 
----
-
-### Step 5 — Install & Run
-
+### 2. Installation
 ```bash
-# In the project folder
 npm install
+```
 
-# Start development server
+### 3. Database Security & Infrastructure
+Deploy the required security rules and compound indexes:
+```bash
+firebase deploy --only firestore:rules,firestore:indexes,storage
+```
+
+### 4. Run Locally
+```bash
 npm start
 ```
 
-Open **http://localhost:3000** in your browser.
+---
+
+## 📦 Enterprise Inventory Management (E-IMS)
+
+The system includes a specialized inventory module with a **Forecasting Engine** that runs daily:
+*   **Concrete Load**: Predicts consumption based on "pour" and "concrete" tasks.
+*   **Steel Load**: Forecasts rebar requirements.
+*   **Automated Purchase Requests**: Triggers high-urgency requests when forecasted load exceeds stock.
 
 ---
 
-### Step 6 — Deploy Firestore Indexes (Required!)
+## 🔐 User Roles & Permissions
 
-The app uses compound queries that require indexes. Run this once:
+The system implements a strict Role-Based Access Control (RBAC) model to ensure data integrity and workflow efficiency.
 
-```bash
-# Install Firebase CLI globally
-npm install -g firebase-tools
-
-# Login to Firebase
-firebase login
-
-# Initialize (choose existing project: sprs-mecs)
-firebase init firestore
-
-# Deploy indexes
-firebase deploy --only firestore:indexes
-
-# Deploy security rules
-firebase deploy --only firestore:rules,storage
-```
+### 📊 Roles Matrix
+| Feature | Administrator | Consultant | Supervisor |
+|---|:---:|:---:|:---:|
+| User Management & Approvals | ✅ | ❌ | ❌ |
+| Project Creation & Editing | ✅ | ✅ | ❌ |
+| Task Definition & Assignment | ❌ | ✅ | ❌ |
+| Daily Report Submission | ❌ | ❌ | ✅ |
+| Report Review & Approval | ❌ | ✅ | ❌ |
+| Inventory Forecasting (E-IMS) | ✅ | ✅ | ✅ |
+| System Audit Logs | ✅ | ❌ | ❌ |
+| Global Announcements | ✅ | ❌ | ❌ |
 
 ---
 
-## 🗂️ Project Structure
+### 🔑 Role-Specific Workflows
 
-```
-sprs/
-├── public/
-│   └── index.html
-├── src/
-│   ├── firebase/
-│   │   ├── config.js          ← Firebase init + exports
-│   │   └── services.js        ← All CRUD operations
-│   ├── contexts/
-│   │   └── AuthContext.js     ← Global auth state
-│   ├── components/
-│   │   ├── auth/
-│   │   │   └── AuthPage.js    ← Login + Register
-│   │   ├── dashboard/
-│   │   │   └── Dashboard.js   ← Stats + Charts
-│   │   ├── tasks/
-│   │   │   └── TasksPage.js   ← Project + Task CRUD
-│   │   ├── reports/
-│   │   │   └── ReportsPage.js ← Daily log + photo upload
-│   │   ├── issues/
-│   │   │   └── IssuesPage.js  ← Issue tracker
-│   │   ├── notifications/
-│   │   │   └── NotificationsPage.js
-│   │   └── shared/
-│   │       ├── Sidebar.js     ← Navigation
-│   │       ├── Topbar.js      ← Header + notif bell
-│   │       ├── AppLayout.js   ← Sidebar wrapper
-│   │       └── ProtectedRoute.js
-│   ├── App.js                 ← Routes
-│   ├── index.js               ← Entry point
-│   └── index.css              ← Global styles + CSS variables
-├── firestore.rules            ← Security rules
-├── firestore.indexes.json     ← Compound query indexes
-├── storage.rules              ← Storage security
-├── firebase.json              ← Firebase hosting config
-└── package.json
-```
+#### 👑 Administrator (System Governance)
+*   **User Lifecycle Management**: Full control over user approvals, rejections, and account deactivations.
+*   **System Audit Logs**: Monitor all critical system actions and entity changes for full accountability.
+*   **Global Announcements**: Broadcast high-priority messages to all staff or specific roles via the notification engine.
+*   **Enterprise Oversight**: Comprehensive visibility across all active projects and global inventory status.
+
+#### 🎓 Consultant (Project Oversight)
+*   **Project Initiation**: Define project scopes, geographic locations, and baseline timelines.
+*   **Task Management**: Create detailed work packages and assign them to specific site supervisors.
+*   **Quality Assurance**: Review daily reports with a structured workflow (Approve or Request Resubmission with feedback).
+*   **Progress Analytics**: Analyze project velocity through specialized charts and milestone tracking.
+
+#### 👷 Site Supervisor (Field Execution)
+*   **Daily Site Logging**: Capture real-time data including weather, workforce distribution, and equipment usage.
+*   **Progress Documentation**: Upload multiple site photos as visual proof of daily progress.
+*   **Task Synchronization**: Update task status in real-time (To-Do → In Progress → Done) to keep stakeholders informed.
+*   **Issue Reporting**: Log site incidents or material shortages immediately with severity levels to trigger alerts.
 
 ---
 
-## 🔐 User Roles
-
-| Role | Can Do |
-|---|---|
-| **Consultant** | Create projects, create & assign tasks, approve/reject reports, view all data |
-| **Supervisor** | Submit daily reports, update task status, report issues, view own data |
-
-Both roles are selected at registration time.
+## 📱 PWA Features
+*   **Service Worker**: Background sync and asset caching.
+*   **Push Notifications**: Real-time alerts for report status updates and low stock warnings.
+*   **Installable**: Full-screen mobile experience without browser chrome.
 
 ---
 
-## 📦 Build for Production
-
-```bash
-npm run build
-```
-
-This creates a `build/` folder. Deploy to Firebase Hosting:
-
-```bash
-firebase deploy --only hosting
-```
-
-Your app will be live at `https://sprs-mecs.web.app`
+## 📞 Academic Context
+*   **Institution**: Universiti Teknologi Malaysia (UTM)
+*   **Program**: Bachelor of Computer Science (Software Engineering)
+*   **Course**: Projek Sarjana Muda 2 (PSM 2)
+*   **Student**: Nurdhaniyah Fadlisha binti Hasnorfadli (A22MJ5003)
+*   **Supervisor**: Dr. Zatul Alwani Shaffiei
 
 ---
 
-## 🗄️ Firestore Collections
-
-| Collection | Key Fields |
-|---|---|
-| `users` | uid, name, email, role |
-| `projects` | name, location, status, progress, startDate, endDate |
-| `tasks` | projectId, title, assignedTo, priority, status, dueDate |
-| `reports` | projectId, title, date, description, workforce, photoUrls, status |
-| `issues` | title, description, priority, status, reportedBy |
-| `notifications` | recipientUid, message, type, read |
-
----
-
-## 🛠️ Tech Stack
-
-- **Frontend**: React 18, React Router 6
-- **Backend/DB**: Firebase Firestore (NoSQL, real-time)
-- **Auth**: Firebase Authentication
-- **Storage**: Firebase Storage (photo uploads)
-- **Charts**: Recharts
-- **Icons**: Lucide React
-- **Notifications**: react-hot-toast
-- **Architecture**: MVVM pattern
-
----
-
-## ❓ Troubleshooting
-
-| Problem | Solution |
-|---|---|
-| `FirebaseError: Missing or insufficient permissions` | Deploy Firestore rules: `firebase deploy --only firestore:rules` |
-| `FirebaseError: The query requires an index` | Deploy indexes: `firebase deploy --only firestore:indexes` |
-| Photos not uploading | Enable Firebase Storage and deploy storage rules |
-| App shows blank page | Check browser console for Firebase config errors |
-| `npm start` fails | Delete `node_modules/` and run `npm install` again |
-
----
-
-## 📞 Support
-
-Developed as FYP1 project for **Universiti Teknologi Malaysia (UTM)**
-Student: Nurdhaniyah Fadlisha binti Hasnorfadli — A22MJ5003
-Supervisor: Dr. Zatul Alwani Shaffiei
+> [!NOTE]
+> This system is developed for professional use at MEC'S Engineering Sdn. Bhd. for site monitoring and data-driven decision making.
