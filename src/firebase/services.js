@@ -432,6 +432,7 @@ export const seedDummyData = async () => {
     { title: "MEP Rough-in (Electrical)", assignedTo: "Ahmad Fadzil", site: "Block A, All Levels", dueDate: "2026-02-28", priority: "medium", status: "done", completedAt: "2026-02-26" },
     { title: "External Façade Cladding", assignedTo: "Ravi Kumar", site: "Block A, Exterior", dueDate: "2026-03-15", priority: "medium", status: "done", completedAt: "2026-03-14" },
     { title: "Final Inspection & Handover", assignedTo: "Ahmad Fadzil", site: "Block A, All", dueDate: "2026-03-31", priority: "high", status: "done", completedAt: "2026-03-29" },
+    { title: "Post-Handover Defect Rectification", assignedTo: "John Doe", site: "Block A, L1-L5", dueDate: "2026-04-15", priority: "medium", status: "done", completedAt: "2026-04-10" },
   ];
   for (const t of t1Tasks) {
     await addDoc(collection(db, "tasks"), { ...t, projectId: p1.id, projectName: "Block A Skyscraper", createdAt: serverTimestamp() });
@@ -486,6 +487,9 @@ export const seedDummyData = async () => {
     { title: "Concrete Lining Phase 2", assignedTo: "Faridah Osman", site: "Canal Km 0.7–1.4", dueDate: "2026-06-20", priority: "high", status: "todo" },
     { title: "Canal Excavation Phase 3 (1.4–2.1km)", assignedTo: "Zulkifli Hamdan", site: "Canal Km 1.4–2.1", dueDate: "2026-07-15", priority: "medium", status: "todo" },
     { title: "Final Concrete Lining & Commissioning", assignedTo: "Faridah Osman", site: "Full Canal", dueDate: "2026-07-30", priority: "high", status: "todo" },
+    { title: "Site Safety Inspection (Phase 2)", assignedTo: "John Doe", site: "Canal Km 0.7–1.4", dueDate: "2026-05-25", priority: "high", status: "inprogress" },
+    { title: "Equipment Maintenance Logging", assignedTo: "John Doe", site: "Rawang Depot", dueDate: "2026-06-05", priority: "medium", status: "todo" },
+    { title: "Material Delivery Verification", assignedTo: "John Doe", site: "Rawang Township", dueDate: "2026-06-10", priority: "medium", status: "todo" },
   ];
   for (const t of t5Tasks) {
     await addDoc(collection(db, "tasks"), { ...t, projectId: p5.id, projectName: "Rawang Flood Mitigation Canal", createdAt: serverTimestamp() });
