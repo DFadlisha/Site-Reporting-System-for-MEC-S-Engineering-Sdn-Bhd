@@ -155,15 +155,20 @@ exports.onUserStatusChanged = functions.firestore
 
     // Check if status changed from pending to approved
     if (before.status === "pending" && after.status === "approved") {
-      console.log(`[EMAIL SIMULATION] Sending approval email to: ${after.email}`);
+      console.log(`Sending approval email to: ${after.email}`);
       
-      // Create an in-app notification
-      return db.collection("notifications").add({
-        recipientUid: after.uid,
-        message: "Your account has been approved! You can now log in and access the system.",
-        type: "success",
-        read: false,
-        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      const roleStr = after.role || "supervisor";
+      const messageText = `Hello ${after.name},\n\nYou are ${roleStr} and you're registered successfully.\n\nWelcome to SPRS!`;
+      const messageHtml = `<p>Hello ${after.name},</p><p>You are <strong>${roleStr}</strong> and you're registered successfully.</p><p>Welcome to SPRS!</p>`;
+
+      // Send email via Firebase Trigger Email extension (writes to 'mail' collection)
+      return db.collection("mail").add({
+        to: after.email,
+        message: {
+          subject: "Account Approved - SPRS",
+          text: messageText,
+          html: messageHtml
+        }
       });
     }
     return null;
