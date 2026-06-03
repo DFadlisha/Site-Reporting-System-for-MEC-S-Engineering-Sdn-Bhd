@@ -29,3 +29,10 @@ Thumbs.db
 # Firebase
 .firebase/
 firebase-debug.log
+
+# Firebase Service Account
+serviceAccountKey.json
+
+# Excel imports data files
+excel_imports/**/*.xlsx
+excel_imports/**/*.xls

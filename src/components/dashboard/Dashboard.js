@@ -277,11 +277,6 @@ export default function Dashboard() {
             <button className="btn btn-sm btn-outline-primary" onClick={handlePush} style={{borderColor: themeColors.info, color: themeColors.info}}>
               <Bell size={16} /> Enable Notifications
             </button>
-            {isAdmin && (
-              <button className="btn btn-sm btn-outline-warning" onClick={handleSeed} style={{borderColor: themeColors.warning, color: themeColors.warning}}>
-                <Database size={16} /> Seed Data
-              </button>
-            )}
           </div>
         </div>
 
