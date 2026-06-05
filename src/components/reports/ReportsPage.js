@@ -90,14 +90,20 @@ export default function ReportsPage() {
     return null;
   };
 
+  const visibleTasks = React.useMemo(() => {
+    if (isSupervisor) {
+      return tasks.filter(t => t.assignedTo === profile?.name || t.assignedToUid === user?.uid);
+    }
+    return tasks;
+  }, [tasks, isSupervisor, profile?.name, user?.uid]);
+
   const visibleProjects = React.useMemo(() => {
     if (isSupervisor) {
-      const myTasks = tasks.filter(t => t.assignedTo === profile?.name || t.assignedToUid === user?.uid);
-      const myProjectIds = new Set(myTasks.map(t => t.projectId));
+      const myProjectIds = new Set(visibleTasks.map(t => t.projectId));
       return projects.filter(p => myProjectIds.has(p.id));
     }
     return projects;
-  }, [projects, tasks, isSupervisor, profile?.name, user?.uid]);
+  }, [projects, visibleTasks, isSupervisor]);
 
   const location = useLocation();
   useEffect(() => {
@@ -724,14 +730,14 @@ export default function ReportsPage() {
                       required 
                       value={form.taskId} 
                       onChange={(e) => {
-                        const selTask = tasks.find(t => t.id === e.target.value);
+                        const selTask = visibleTasks.find(t => t.id === e.target.value);
                         setForm({ ...form, taskId: e.target.value, taskName: selTask?.title || "" });
                       }} 
                       disabled={!form.projectId}
                       style={{color: form.taskId ? 'inherit' : '#999'}}
                     >
                       <option value="" disabled hidden>{form.projectId ? "Select task..." : "First select project"}</option>
-                      {tasks.filter(t => t.projectId === form.projectId).map((t) => (
+                      {visibleTasks.filter(t => t.projectId === form.projectId).map((t) => (
                         <option key={t.id} value={t.id}>{t.title}</option>
                       ))}
                     </select>

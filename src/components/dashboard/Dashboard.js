@@ -713,10 +713,10 @@ export default function Dashboard() {
                       </tr>
                     </thead>
                     <tbody>
-                      {tasks.filter(t => t.projectId === selectedExportProject.id).length === 0 ? (
+                      {myTasks.filter(t => t.projectId === selectedExportProject.id).length === 0 ? (
                         <tr><td colSpan="4" style={{ textAlign: 'center', padding: '30px 16px', color: 'var(--text-secondary)', fontStyle: 'italic' }}>No tasks assigned to this project yet.</td></tr>
                       ) : (
-                        tasks.filter(t => t.projectId === selectedExportProject.id).map(t => (
+                        myTasks.filter(t => t.projectId === selectedExportProject.id).map(t => (
                           <tr key={t.id}>
                             <td style={{ fontWeight: 600 }}>{t.title}</td>
                             <td style={{ color: 'var(--text-secondary)' }}>{t.assignedTo || "Unassigned"}</td>
@@ -744,7 +744,7 @@ export default function Dashboard() {
       {/* Invisible Printable Component triggered by window.print() */}
       {selectedExportProject && (() => {
         const projectReports = reports.filter(r => r.projectId === selectedExportProject.id);
-        const projectTasks = tasks.filter(t => t.projectId === selectedExportProject.id);
+        const projectTasks = myTasks.filter(t => t.projectId === selectedExportProject.id);
         const projectIssues = issues.filter(i => i.projectId === selectedExportProject.id);
         const consultantName = projectReports.find(r => r.reviewedBy)?.reviewedBy || "MEC'S Engineering Consultant";
         
@@ -867,7 +867,7 @@ export default function Dashboard() {
       })()}
       {/* Printable Invoice / Quotation Template */}
       {selectedExportProject && (() => {
-        const projectTasks = tasks.filter(t => t.projectId === selectedExportProject.id);
+        const projectTasks = myTasks.filter(t => t.projectId === selectedExportProject.id);
         const projectReports = reports.filter(r => r.projectId === selectedExportProject.id);
         // Collect unique materials and equipment from reports
         const allMaterials = [...new Set(projectReports.map(r => r.materials).filter(Boolean))];
