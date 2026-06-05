@@ -1,5 +1,5 @@
 // src/components/dashboard/Dashboard.js
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useMemo, useCallback } from "react";
 import {
   FolderOpen, CheckSquare, FileText,
   AlertTriangle, TrendingUp, CheckCircle, Bell, Database, X, Download,
@@ -8,7 +8,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import Topbar from "../shared/Topbar";
 import AdminDashboard from "./AdminDashboard";
-import { subscribeProjects, subscribeTasks, subscribeReports, subscribeIssues, seedDummyData, requestPushPermission, subscribeNotifications } from "../../firebase/services";
+import { subscribeProjects, subscribeTasks, subscribeReports, subscribeIssues, requestPushPermission, subscribeNotifications, subscribeUserProjects, markNotificationRead } from "../../firebase/services";
 import { useAuth } from "../../contexts/AuthContext";
 import { useTheme } from "../../contexts/ThemeContext";
 import toast from "react-hot-toast";
@@ -82,7 +82,7 @@ export default function Dashboard() {
   const [viewMode, setViewMode] = useState("list");
 
   useEffect(() => {
-    const u1 = subscribeProjects(setProjects);
+    const u1 = subscribeUserProjects(user?.uid, role, setProjects);
     const u2 = subscribeTasks(null, setTasks);
     const u3 = subscribeReports(null, setReports);
     const u4 = subscribeIssues(setIssues);
@@ -91,12 +91,21 @@ export default function Dashboard() {
       u5 = subscribeNotifications(user.uid, setNotifications);
     }
     return () => { u1(); u2(); u3(); u4(); if(u5) u5(); };
-  }, [user]);
+  }, [user, role]);
 
   // ── Role-specific computed metrics ──────────────────────────────
   const myTasks = isSupervisor
     ? tasks.filter(t => t.assignedTo === profile?.name || t.assignedToUid === user?.uid)
     : tasks;
+
+  const visibleProjects = useMemo(() => {
+    if (isSupervisor) {
+      const myProjectIds = new Set(myTasks.map(t => t.projectId));
+      return projects.filter(p => myProjectIds.has(p.id));
+    }
+    return projects;
+  }, [projects, myTasks, isSupervisor]);
+
   const doneTasks     = myTasks.filter((t) => t.status === "done").length;
   const inProgressTasks = myTasks.filter((t) => t.status === "inprogress").length;
   const pendingReports = reports.filter((r) => r.status === "pending").length;
@@ -104,7 +113,7 @@ export default function Dashboard() {
 
   // ── Role-specific stat cards (per flowchart) ────────────────────
   const consultantStats = [
-    { label: "Active Projects",  value: projects.length, icon: FolderOpen,   color: themeColors.info },
+    { label: "Active Projects",  value: visibleProjects.length, icon: FolderOpen,   color: themeColors.info },
     { label: "Tasks Created",    value: tasks.length,    icon: CheckSquare,  color: themeColors.success },
     { label: "Pending Reviews",  value: pendingReports,  icon: FileText,     color: themeColors.warning },
     { label: "Open Issues",      value: openIssues,      icon: AlertTriangle,color: themeColors.danger },
@@ -118,7 +127,7 @@ export default function Dashboard() {
   ];
 
   const adminStats = [
-    { label: "Active Projects",  value: projects.length, icon: FolderOpen,   color: themeColors.info },
+    { label: "Active Projects",  value: visibleProjects.length, icon: FolderOpen,   color: themeColors.info },
     { label: "Tasks Completed",  value: doneTasks,       icon: CheckSquare,  color: themeColors.success },
     { label: "Pending Reports",  value: pendingReports,  icon: FileText,     color: themeColors.warning },
     { label: "Open Issues",      value: openIssues,      icon: AlertTriangle,color: themeColors.danger },
@@ -141,8 +150,8 @@ export default function Dashboard() {
 
   const quickActions = isConsultant ? consultantActions : isSupervisor ? supervisorActions : consultantActions;
 
-  // Chart.js Data configurations
-  const lineChartData = {
+  // Memoize chart data to prevent flickering on notification updates
+  const lineChartData = useMemo(() => ({
     labels: MOCK_AREA.map(d => d.month),
     datasets: [
       {
@@ -162,9 +171,9 @@ export default function Dashboard() {
         tension: 0.4
       }
     ]
-  };
+  }), [themeColors.info, themeColors.success]);
 
-  const lineChartOptions = {
+  const lineChartOptions = useMemo(() => ({
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
@@ -187,10 +196,10 @@ export default function Dashboard() {
         ticks: { color: themeColors.textSecondary }
       }
     }
-  };
+  }), [themeColors]);
 
   const taskData = isSupervisor ? myTasks : tasks;
-  const doughnutData = {
+  const doughnutData = useMemo(() => ({
     labels: ['To Do', 'In Progress', 'Done'],
     datasets: [{
       data: [
@@ -202,9 +211,9 @@ export default function Dashboard() {
       borderWidth: 0,
       hoverOffset: 4
     }]
-  };
+  }), [taskData, COLORS]);
 
-  const doughnutOptions = {
+  const doughnutOptions = useMemo(() => ({
     responsive: true,
     maintainAspectRatio: false,
     plugins: {
@@ -218,16 +227,8 @@ export default function Dashboard() {
       }
     },
     cutout: '70%'
-  };
+  }), [themeColors]);
 
-  const handleSeed = async () => {
-    try {
-      await seedDummyData();
-      toast.success("Database heavily populated with dummy data!");
-    } catch (e) {
-      toast.error("Failed to seed data");
-    }
-  };
 
   const handlePush = async () => {
     toast.loading("Requesting browser permission...");
@@ -375,7 +376,7 @@ export default function Dashboard() {
           <div className="db-chart-title fw-bold mb-3 d-flex align-items-center gap-2">
             <FolderOpen size={18} /> Project Overview
           </div>
-          {projects.length === 0 ? (
+          {visibleProjects.length === 0 ? (
             <p className="text-muted small">
               No projects yet. {isSupervisor 
                 ? "Your consultant will assign you to a project soon." 
@@ -392,7 +393,7 @@ export default function Dashboard() {
                 <div style={{ flex: '0 0 90px', textAlign: 'center' }}>Status</div>
               </div>
 
-              {projects.map((p) => {
+              {visibleProjects.map((p) => {
                 // Due date urgency logic
                 let dueBg = 'transparent';
                 let dueColor = themeColors.textSecondary;
@@ -505,7 +506,7 @@ export default function Dashboard() {
                     onChange={(e) => setSupervisorFilterProject(e.target.value)}
                   >
                     <option value="">Project (All)</option>
-                    {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                    {visibleProjects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
                   </select>
                   <select 
                     className="form-control form-control-sm" 
@@ -602,12 +603,27 @@ export default function Dashboard() {
             <div className="visily-notification-pane" style={{width: "100%", flex: "0 0 340px", background: "var(--bg-surface)", padding: "24px", borderRadius: "8px", border: "1px solid var(--border)"}}>
                <div className="d-flex justify-content-between align-items-center mb-4">
                  <h5 style={{fontWeight: 700, margin: 0, color: "var(--text-primary)"}}>Notification</h5>
-                 <span style={{fontSize: "0.8rem", color: "var(--text-secondary)", cursor: "pointer"}}>✓ Mark All Read</span>
+                  <span 
+                    style={{fontSize: "0.8rem", color: "var(--text-secondary)", cursor: "pointer"}}
+                    onClick={() => {
+                      notifications.filter(n => !n.read).forEach(n => markNotificationRead(n.id));
+                    }}
+                  >
+                    ✓ Mark All Read
+                  </span>
                </div>
                
                <div className="notifications-widget" style={{maxHeight: '400px', overflowY: 'auto'}}>
                    {notifications.length > 0 && notifications.slice(0, 5).map((n) => (
-                     <div key={n.id} className="d-flex gap-3" style={{paddingBottom: 12, borderBottom: '1px solid var(--border)', marginBottom: 12}}>
+                     <div 
+                        key={n.id} 
+                        className="d-flex gap-3" 
+                        style={{paddingBottom: 12, borderBottom: '1px solid var(--border)', marginBottom: 12, cursor: 'pointer', opacity: n.read ? 0.7 : 1}}
+                        onClick={async () => {
+                          if (!n.read) await markNotificationRead(n.id);
+                          if (n.link) navigate(n.link);
+                        }}
+                     >
                         <div style={{marginTop: 2}}>
                           {n.type === 'success' ? <CheckCircle size={16} color="var(--success)"/> : n.type === 'error' ? <XCircle size={16} color="var(--danger)"/> : <Bell size={16} color="var(--accent)"/>}
                         </div>
@@ -621,22 +637,11 @@ export default function Dashboard() {
                    ))}
 
                   {notifications.length === 0 && (
-                   <>
-                    <div className="d-flex gap-3" style={{paddingBottom: 12, borderBottom: '1px solid var(--border)', marginBottom: 12}}>
-                        <div style={{marginTop: 2}}><CheckCircle size={16} color="var(--success)"/></div>
-                        <div>
-                           <div style={{fontSize: '0.85rem', color: 'var(--text-primary)', fontWeight: 600, lineHeight: 1.4}}>Task 'Electrical Work' assigned to you</div>
-                           <div style={{fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: 4}}>2 mins ago</div>
-                        </div>
+                    <div className="d-flex flex-column align-items-center justify-content-center" style={{ padding: '30px 10px', color: 'var(--text-secondary)' }}>
+                      <Bell size={24} style={{ opacity: 0.3, marginBottom: 8 }} />
+                      <div style={{ fontSize: '0.85rem', fontWeight: 600 }}>No notifications yet</div>
+                      <div style={{ fontSize: '0.75rem' }}>They'll appear here as they come in.</div>
                     </div>
-                    <div className="d-flex gap-3" style={{paddingBottom: 12, borderBottom: '1px solid var(--border)', marginBottom: 12}}>
-                        <div style={{marginTop: 2}}><XCircle size={16} color="var(--danger)"/></div>
-                        <div>
-                           <div style={{fontSize: '0.85rem', color: 'var(--text-primary)', fontWeight: 600, lineHeight: 1.4}}>Your report on Site B was rejected: 'Missing GPS data'</div>
-                           <div style={{fontSize: '0.75rem', color: 'var(--text-secondary)', marginTop: 4}}>10 mins ago</div>
-                        </div>
-                    </div>
-                   </>
                   )}
                 </div>
             </div>
@@ -650,6 +655,12 @@ export default function Dashboard() {
                <div className="sp-modal-header">
                 <h3 className="sp-modal-title" style={{ marginBottom: 0, fontFamily: 'var(--font-display)' }}>{selectedExportProject.name} — Report</h3>
                 <div className="sp-modal-actions">
+                   <button className="btn btn-sm" style={{ borderRadius: 20, padding: '7px 18px', fontWeight: 700, fontSize: '0.8rem', background: 'rgba(88,166,255,0.15)', color: 'var(--info)', border: '1px solid rgba(88,166,255,0.3)' }} onClick={() => {
+                     const invoiceEl = document.getElementById('printable-invoice');
+                     if (invoiceEl) { invoiceEl.style.display = 'block'; setTimeout(() => { window.print(); setTimeout(() => { invoiceEl.style.display = 'none'; }, 500); }, 200); }
+                   }}>
+                     <FileText size={14} /> Invoice / Quotation
+                   </button>
                    <button className="btn btn-primary btn-sm" style={{ borderRadius: 20, padding: '7px 18px', fontWeight: 700, fontSize: '0.8rem' }} onClick={() => window.print()}>
                      <Download size={14} /> Export PDF
                    </button>
@@ -854,6 +865,172 @@ export default function Dashboard() {
           </div>
         );
       })()}
+      {/* Printable Invoice / Quotation Template */}
+      {selectedExportProject && (() => {
+        const projectTasks = tasks.filter(t => t.projectId === selectedExportProject.id);
+        const projectReports = reports.filter(r => r.projectId === selectedExportProject.id);
+        // Collect unique materials and equipment from reports
+        const allMaterials = [...new Set(projectReports.map(r => r.materials).filter(Boolean))];
+        const allEquipment = [...new Set(projectReports.map(r => r.equipment).filter(Boolean))];
+
+        return (
+          <div id="printable-invoice" className="printable-master-report" style={{ display: 'none' }}>
+            {/* Letterhead */}
+            <div className="report-letterhead">
+              <div className="lh-left">
+                <div className="lh-logo">SPRS</div>
+                <div className="lh-company">MEC'S Engineering Sdn Bhd</div>
+                <div className="lh-address">Level 12, Tower A, PJ Exchange, No. 165 Jalan Barat, 46050 Petaling Jaya, Selangor</div>
+              </div>
+              <div className="lh-right">
+                <div className="report-type">INVOICE / QUOTATION</div>
+                <div className="report-date">Date: {new Date().toLocaleDateString('en-GB', { day: '2-digit', month: 'long', year: 'numeric' })}</div>
+                <div className="report-date">Ref: INV-{selectedExportProject.id?.substring(0,8).toUpperCase()}</div>
+              </div>
+            </div>
+
+            <div className="report-divider" />
+
+            {/* Client / Project Info */}
+            <div className="report-section">
+              <h2 className="section-title">Project Information</h2>
+              <div className="info-grid">
+                <div className="info-item"><span className="info-label">Project:</span><span className="info-value">{selectedExportProject.name}</span></div>
+                <div className="info-item"><span className="info-label">Location:</span><span className="info-value">{selectedExportProject.location || 'N/A'}</span></div>
+                <div className="info-item"><span className="info-label">Start Date:</span><span className="info-value">{selectedExportProject.startDate || 'N/A'}</span></div>
+                <div className="info-item"><span className="info-label">End Date:</span><span className="info-value">{selectedExportProject.endDate || 'N/A'}</span></div>
+                <div className="info-item"><span className="info-label">Progress:</span><span className="info-value">{selectedExportProject.progress || 0}%</span></div>
+                <div className="info-item"><span className="info-label">Status:</span><span className="info-value">{selectedExportProject.status?.toUpperCase()}</span></div>
+              </div>
+            </div>
+
+            {/* Task Breakdown */}
+            <div className="report-section">
+              <h2 className="section-title">Task Breakdown</h2>
+              <table className="report-table">
+                <thead>
+                  <tr>
+                    <th style={{ width: '5%' }}>#</th>
+                    <th style={{ width: '35%' }}>Description</th>
+                    <th style={{ width: '20%' }}>Assigned To</th>
+                    <th style={{ width: '15%' }}>Site</th>
+                    <th style={{ width: '10%' }}>Status</th>
+                    <th style={{ width: '15%' }}>Due Date</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {projectTasks.length === 0 ? (
+                    <tr><td colSpan="6" style={{ textAlign: 'center', padding: '20px', color: '#888' }}>No tasks recorded.</td></tr>
+                  ) : (
+                    projectTasks.map((t, i) => (
+                      <tr key={t.id}>
+                        <td>{i + 1}</td>
+                        <td><strong>{t.title}</strong></td>
+                        <td>{t.assignedTo || '—'}</td>
+                        <td>{t.site || '—'}</td>
+                        <td><span className={`task-badge ${t.status}`}>{t.status?.toUpperCase()}</span></td>
+                        <td>{t.dueDate || '—'}</td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Materials & Equipment Summary */}
+            <div className="report-section">
+              <h2 className="section-title">Materials & Equipment Summary</h2>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '20px' }}>
+                <div>
+                  <h3 style={{ fontSize: '12px', fontWeight: 700, marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '1px' }}>Materials Used</h3>
+                  {allMaterials.length === 0 ? <p style={{ fontSize: '11px', color: '#888' }}>No materials recorded.</p> : (
+                    <ul style={{ margin: 0, paddingLeft: '16px', fontSize: '11px', lineHeight: 1.8 }}>
+                      {allMaterials.map((m, i) => <li key={i}>{m}</li>)}
+                    </ul>
+                  )}
+                </div>
+                <div>
+                  <h3 style={{ fontSize: '12px', fontWeight: 700, marginBottom: '8px', textTransform: 'uppercase', letterSpacing: '1px' }}>Equipment Deployed</h3>
+                  {allEquipment.length === 0 ? <p style={{ fontSize: '11px', color: '#888' }}>No equipment recorded.</p> : (
+                    <ul style={{ margin: 0, paddingLeft: '16px', fontSize: '11px', lineHeight: 1.8 }}>
+                      {allEquipment.map((e, i) => <li key={i}>{e}</li>)}
+                    </ul>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Cost / Pricing Section (blank for user to fill) */}
+            <div className="report-section">
+              <h2 className="section-title">Pricing</h2>
+              <table className="report-table">
+                <thead>
+                  <tr>
+                    <th style={{ width: '5%' }}>#</th>
+                    <th style={{ width: '45%' }}>Item Description</th>
+                    <th style={{ width: '15%' }}>Qty</th>
+                    <th style={{ width: '15%' }}>Unit Price (RM)</th>
+                    <th style={{ width: '20%' }}>Amount (RM)</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {projectTasks.map((t, i) => (
+                    <tr key={t.id}>
+                      <td>{i + 1}</td>
+                      <td>{t.title}</td>
+                      <td style={{ borderBottom: '1px dotted #ccc' }}></td>
+                      <td style={{ borderBottom: '1px dotted #ccc' }}></td>
+                      <td style={{ borderBottom: '1px dotted #ccc' }}></td>
+                    </tr>
+                  ))}
+                  <tr>
+                    <td colSpan="4" style={{ textAlign: 'right', fontWeight: 700, paddingTop: '12px' }}>Subtotal</td>
+                    <td style={{ fontWeight: 700, paddingTop: '12px', borderBottom: '1px solid #333' }}></td>
+                  </tr>
+                  <tr>
+                    <td colSpan="4" style={{ textAlign: 'right', fontWeight: 700 }}>SST (8%)</td>
+                    <td style={{ fontWeight: 700, borderBottom: '1px solid #333' }}></td>
+                  </tr>
+                  <tr>
+                    <td colSpan="4" style={{ textAlign: 'right', fontWeight: 800, fontSize: '13px' }}>TOTAL (RM)</td>
+                    <td style={{ fontWeight: 800, fontSize: '13px', borderBottom: '2px double #333' }}></td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            {/* Signature & Terms */}
+            <div className="report-section" style={{ marginTop: '40px' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', gap: '40px' }}>
+                <div style={{ flex: 1 }}>
+                  <p style={{ fontSize: '10px', color: '#666', marginBottom: '40px' }}>
+                    <strong>Terms & Conditions:</strong><br />
+                    1. Payment is due within 30 days of invoice date.<br />
+                    2. All prices are in Malaysian Ringgit (RM).<br />
+                    3. This quotation is valid for 30 days from the date above.
+                  </p>
+                </div>
+                <div style={{ flex: 1, textAlign: 'right' }}>
+                  <div style={{ borderTop: '1px solid #333', width: '200px', marginLeft: 'auto', paddingTop: '8px', fontSize: '11px' }}>
+                    Authorized Signature
+                  </div>
+                  <div style={{ fontSize: '10px', color: '#888', marginTop: '4px' }}>MEC'S Engineering Sdn Bhd</div>
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="report-footer">
+              <div className="footer-line" />
+              <div className="footer-content">
+                <p>This is a computer-generated invoice from the Site Progress Reporting System (SPRS).</p>
+                <p>© {new Date().getFullYear()} MEC'S Engineering Sdn Bhd. All rights reserved.</p>
+              </div>
+            </div>
+          </div>
+        );
+      })()}
     </div>
+
   );
 }

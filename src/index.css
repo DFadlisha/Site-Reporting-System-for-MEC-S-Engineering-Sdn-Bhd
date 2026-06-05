@@ -40,6 +40,10 @@
   --topbar-h: 60px;
 }
 
+body.sidebar-collapsed {
+  --sidebar-w: 64px;
+}
+
 [data-theme="dark"] {
   /* Dark mode palette – original deep slate + coral accent */
   --bg-base:       #0d1117;
@@ -277,6 +281,7 @@ select.form-control { appearance: none; }
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  transition: margin-left 0.2s ease;
 }
 .page-body {
   padding: 28px;

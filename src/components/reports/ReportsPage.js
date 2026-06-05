@@ -9,7 +9,7 @@ import Topbar from "../shared/Topbar";
 import {
   createReport, subscribeReports, updateReport,
   subscribeProjects, createNotification, subscribeTasks,
-  getSystemUsers
+  getSystemUsers, subscribeUserProjects
 } from "../../firebase/services";
 import { useAuth } from "../../contexts/AuthContext";
 import toast from "react-hot-toast";
@@ -39,6 +39,9 @@ export default function ReportsPage() {
   const [filterStatus, setFilterStatus] = useState("all");
   const [filterProject, setFilterProject] = useState("");
   const [filterSearch, setFilterSearch] = useState("");
+  const [filterMonth, setFilterMonth] = useState("all");
+  const [filterLocation, setFilterLocation] = useState("");
+  const [filterPriority, setFilterPriority] = useState("all");
   const [inlineComment, setInlineComment] = useState("");
   const [tasks, setTasks] = useState([]);
   const [expandedExportProject, setExpandedExportProject] = useState(null);
@@ -54,7 +57,7 @@ export default function ReportsPage() {
   const [commentText, setCommentText] = useState("");
 
   const [form, setForm] = useState({
-    title: "", projectId: "", projectName: "", date: "", weather: "",
+    title: "", projectId: "", projectName: "", taskId: "", taskName: "", date: "", weather: "",
     description: "", workforce: "", materials: "", equipment: "",
     gpsLat: "", gpsLng: "", issues: "",
   });
@@ -62,12 +65,39 @@ export default function ReportsPage() {
   const [photoPreviews, setPhotoPreviews] = useState([]);
   const sigCanvas = useRef(null);
 
+  // Equipment & Materials options and multi-select states
+  const EQUIPMENT_OPTIONS = ["Excavator", "Concrete Mixer", "Mobile Crane", "Scaffolding", "Generator", "Welding Machine", "Jackhammer", "Other"];
+  const MATERIALS_OPTIONS = ["Cement", "Steel Bars", "Bricks", "Sand", "Gravel", "Pipes", "Timber", "Paint", "Other"];
+
+  const [selectedEquipment, setSelectedEquipment] = useState([]);
+  const [customEquipment, setCustomEquipment] = useState("");
+  const [selectedMaterials, setSelectedMaterials] = useState([]);
+  const [customMaterials, setCustomMaterials] = useState("");
+
   useEffect(() => {
     const u1 = subscribeReports(null, setReports);
-    const u2 = subscribeProjects(setProjects);
+    const u2 = subscribeUserProjects(user?.uid, role, setProjects);
     const u3 = subscribeTasks(null, setTasks);
     return () => { u1(); u2(); u3(); };
-  }, []);
+  }, [user, role]);
+
+  const getReportMonth = (dateStr) => {
+    if (!dateStr) return null;
+    const parts = dateStr.split("-");
+    if (parts.length >= 2) {
+      return parseInt(parts[1], 10);
+    }
+    return null;
+  };
+
+  const visibleProjects = React.useMemo(() => {
+    if (isSupervisor) {
+      const myTasks = tasks.filter(t => t.assignedTo === profile?.name || t.assignedToUid === user?.uid);
+      const myProjectIds = new Set(myTasks.map(t => t.projectId));
+      return projects.filter(p => myProjectIds.has(p.id));
+    }
+    return projects;
+  }, [projects, tasks, isSupervisor, profile?.name, user?.uid]);
 
   const location = useLocation();
   useEffect(() => {
@@ -94,6 +124,37 @@ export default function ReportsPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    
+    // Compile equipment and materials from chips
+    const finalEquipment = [
+      ...selectedEquipment.filter(eq => eq !== "Other"),
+      ...(selectedEquipment.includes("Other") && customEquipment ? customEquipment.split(",").map(s => s.trim()) : [])
+    ].filter(Boolean).join(", ");
+
+    const finalMaterials = [
+      ...selectedMaterials.filter(mat => mat !== "Other"),
+      ...(selectedMaterials.includes("Other") && customMaterials ? customMaterials.split(",").map(s => s.trim()) : [])
+    ].filter(Boolean).join(", ");
+
+    // Validation
+    if (!form.title.trim()) {
+      return toast.error("Please enter a report title.");
+    }
+    if (!form.projectId) {
+      return toast.error("Please select a project.");
+    }
+    if (!form.taskId) {
+      return toast.error("Please select a task.");
+    }
+    if (!form.date) {
+      return toast.error("Please select a date.");
+    }
+    if (!form.description.trim()) {
+      return toast.error("Please enter a progress description.");
+    }
+    if (photoFiles.length === 0) {
+      return toast.error("Please upload at least 1 photo as evidence.");
+    }
     if (sigCanvas.current.isEmpty()) {
       return toast.error("Please provide your physical signature digitally.");
     }
@@ -106,6 +167,8 @@ export default function ReportsPage() {
       await createReport(
         {
           ...form,
+          equipment: finalEquipment,
+          materials: finalMaterials,
           projectName: selectedProject?.name || "",
           submittedBy: profile?.name || user?.email,
           submittedById: user?.uid,
@@ -121,16 +184,21 @@ export default function ReportsPage() {
           await createNotification(
             c.uid,
             `New daily report submitted: "${form.title}" by ${profile?.name || user?.email}. Awaiting your review.`,
-            "info"
+            "info",
+            "/reports" // Link to review daily reports
           );
         }
       } catch (notifErr) { console.error('Notification error:', notifErr); }
 
       toast.success("Daily report submitted!");
       setShowModal(false);
-      setForm({ title: "", projectId: "", projectName: "", date: "", weather: "", description: "", workforce: "", materials: "", equipment: "", gpsLat: "", gpsLng: "", issues: "" });
+      setForm({ title: "", projectId: "", projectName: "", taskId: "", taskName: "", date: "", weather: "", description: "", workforce: "", materials: "", equipment: "", gpsLat: "", gpsLng: "", issues: "" });
       setPhotoFiles([]);
       setPhotoPreviews([]);
+      setSelectedEquipment([]);
+      setCustomEquipment("");
+      setSelectedMaterials([]);
+      setCustomMaterials("");
       sigCanvas.current.clear();
     } catch (err) {
       toast.error(err.message);
@@ -152,7 +220,8 @@ export default function ReportsPage() {
         await createNotification(
           report.submittedById, 
           `Your report "${report.title}" was ${dbAction}.${inlineComment ? ` Comment: ${inlineComment}` : ""}`, 
-          action === "approve" ? "success" : "error"
+          action === "approve" ? "success" : "error",
+          "/reports"
         );
       }
       toast.success(`Report ${dbAction}`);
@@ -163,10 +232,56 @@ export default function ReportsPage() {
     }
   };
 
+  // ── Modal review submit (Approve/Reject confirmation popup) ──
+  const handleSubmitReview = async () => {
+    if (commentAction === "reject" && !commentText.trim()) {
+      return toast.error("Please provide a reason for rejection.");
+    }
+    try {
+      const dbAction = commentAction === "approve" ? "approved" : "rejected";
+      await updateReport(commentTarget.id, {
+        status: dbAction,
+        reviewedBy: profile?.name,
+        reviewedAt: new Date().toISOString(),
+        reviewComment: commentText || "",
+        ...(commentAction === "reject" && { rejectedReason: commentText || "" })
+      });
+      if (commentTarget.submittedById) {
+        await createNotification(
+          commentTarget.submittedById, 
+          `Your report "${commentTarget.title}" was ${dbAction}.${commentText ? ` Comment: ${commentText}` : ""}`, 
+          commentAction === "approve" ? "success" : "error",
+          "/reports"
+        );
+      }
+      toast.success(`Report ${dbAction}`);
+      setActiveReport(null);
+      setShowCommentModal(false);
+      setCommentText("");
+    } catch (err) {
+      toast.error(err.message);
+    }
+  };
+
   const filtered = reports.filter(r => {
     if (filterStatus !== "all" && r.status !== filterStatus) return false;
     if (filterProject && r.projectId !== filterProject) return false;
     if (filterSearch && !r.title?.toLowerCase().includes(filterSearch.toLowerCase()) && !r.projectName?.toLowerCase().includes(filterSearch.toLowerCase())) return false;
+    
+    // Month filter
+    if (filterMonth !== "all") {
+      const monthNum = getReportMonth(r.date);
+      if (monthNum !== parseInt(filterMonth, 10)) return false;
+    }
+
+    const proj = projects.find(p => p.id === r.projectId);
+
+    // Location filter
+    if (filterLocation && proj?.location !== filterLocation) return false;
+
+    // Priority filter
+    if (filterPriority !== "all" && (proj?.priority || "medium") !== filterPriority) return false;
+
     return true;
   });
 
@@ -290,18 +405,66 @@ export default function ReportsPage() {
                 {/* Project select */}
                 <select
                   className="visily-input"
-                  style={{ flex: '1 1 160px', maxWidth: 220, padding: '7px 12px', fontSize: '0.83rem' }}
+                  style={{ flex: '1 1 140px', maxWidth: 180, padding: '7px 12px', fontSize: '0.83rem' }}
                   value={filterProject}
                   onChange={e => setFilterProject(e.target.value)}
                 >
                   <option value="">All Projects</option>
-                  {projects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                  {visibleProjects.map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+                </select>
+
+                {/* Month select */}
+                <select
+                  className="visily-input"
+                  style={{ flex: '1 1 120px', maxWidth: 150, padding: '7px 12px', fontSize: '0.83rem' }}
+                  value={filterMonth}
+                  onChange={e => setFilterMonth(e.target.value)}
+                >
+                  <option value="all">All Months</option>
+                  <option value="1">January</option>
+                  <option value="2">February</option>
+                  <option value="3">March</option>
+                  <option value="4">April</option>
+                  <option value="5">May</option>
+                  <option value="6">June</option>
+                  <option value="7">July</option>
+                  <option value="8">August</option>
+                  <option value="9">September</option>
+                  <option value="10">October</option>
+                  <option value="11">November</option>
+                  <option value="12">December</option>
+                </select>
+
+                {/* Location select */}
+                <select
+                  className="visily-input"
+                  style={{ flex: '1 1 120px', maxWidth: 150, padding: '7px 12px', fontSize: '0.83rem' }}
+                  value={filterLocation}
+                  onChange={e => setFilterLocation(e.target.value)}
+                >
+                  <option value="">All Locations</option>
+                  {[...new Set(projects.map(p => p.location).filter(Boolean))].map(loc => (
+                    <option key={loc} value={loc}>{loc}</option>
+                  ))}
+                </select>
+
+                {/* Priority select */}
+                <select
+                  className="visily-input"
+                  style={{ flex: '1 1 120px', maxWidth: 150, padding: '7px 12px', fontSize: '0.83rem' }}
+                  value={filterPriority}
+                  onChange={e => setFilterPriority(e.target.value)}
+                >
+                  <option value="all">All Priorities</option>
+                  <option value="low">Low Priority</option>
+                  <option value="medium">Medium Priority</option>
+                  <option value="high">High Priority</option>
                 </select>
 
                 {/* Search input */}
                 <input
                   className="visily-input"
-                  style={{ flex: '1 1 180px', maxWidth: 260, padding: '7px 12px', fontSize: '0.83rem' }}
+                  style={{ flex: '1 1 160px', maxWidth: 220, padding: '7px 12px', fontSize: '0.83rem' }}
                   placeholder="Search site name or date..."
                   value={filterSearch}
                   onChange={e => setFilterSearch(e.target.value)}
@@ -412,10 +575,28 @@ export default function ReportsPage() {
                              onChange={(e) => setInlineComment(e.target.value)}
                           />
                           <div className="d-flex gap-2 justify-content-end">
-                             <button className="btn btn-outline-secondary" style={{ fontSize: '0.85rem', padding: '8px 16px', fontWeight: 600, color: 'var(--text-primary)' }} onClick={() => handleSubmitReviewInline(activeReport, "reject")}>
+                             <button 
+                               className="btn btn-outline-secondary" 
+                               style={{ fontSize: '0.85rem', padding: '8px 16px', fontWeight: 600, color: 'var(--text-primary)' }} 
+                               onClick={() => {
+                                 setCommentAction("reject");
+                                 setCommentTarget(activeReport);
+                                 setCommentText(inlineComment);
+                                 setShowCommentModal(true);
+                               }}
+                             >
                                 <XCircle size={14} className="me-1"/> Reject
                              </button>
-                             <button className="visily-coral-btn" style={{ fontSize: '0.85rem', padding: '8px 16px' }} onClick={() => handleSubmitReviewInline(activeReport, "approve")}>
+                             <button 
+                               className="visily-coral-btn" 
+                               style={{ fontSize: '0.85rem', padding: '8px 16px' }} 
+                               onClick={() => {
+                                 setCommentAction("approve");
+                                 setCommentTarget(activeReport);
+                                 setCommentText(inlineComment);
+                                 setShowCommentModal(true);
+                               }}
+                             >
                                 <CheckCircle size={14} className="me-1"/> Approve
                              </button>
                           </div>
@@ -446,6 +627,8 @@ export default function ReportsPage() {
                                    title: activeReport.title || '',
                                    projectId: activeReport.projectId || '',
                                    projectName: activeReport.projectName || '',
+                                   taskId: activeReport.taskId || '',
+                                   taskName: activeReport.taskName || '',
                                    date: '',
                                    weather: activeReport.weather || '',
                                    description: '',
@@ -456,6 +639,21 @@ export default function ReportsPage() {
                                    gpsLng: activeReport.gpsLng || '',
                                    issues: '',
                                  });
+                                 const parseCommaString = (str) => {
+                                   if (!str) return [];
+                                   return str.split(",").map(s => s.trim()).filter(Boolean);
+                                 };
+                                 const eqList = parseCommaString(activeReport.equipment);
+                                 const predefinedEq = eqList.filter(e => EQUIPMENT_OPTIONS.includes(e));
+                                 const customEq = eqList.filter(e => !predefinedEq.includes(e)).join(", ");
+                                 setSelectedEquipment(predefinedEq.length > 0 || customEq ? [...predefinedEq, ...(customEq ? ["Other"] : [])] : []);
+                                 setCustomEquipment(customEq);
+
+                                 const matList = parseCommaString(activeReport.materials);
+                                 const predefinedMat = matList.filter(m => MATERIALS_OPTIONS.includes(m));
+                                 const customMat = matList.filter(m => !predefinedMat.includes(m)).join(", ");
+                                 setSelectedMaterials(predefinedMat.length > 0 || customMat ? [...predefinedMat, ...(customMat ? ["Other"] : [])] : []);
+                                 setCustomMaterials(customMat);
                                  setShowModal(true);
                                }}
                              >
@@ -508,10 +706,34 @@ export default function ReportsPage() {
                   <input className="visily-input" required value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Report Title" />
                   
                   {/* Additional form fields from original code mapped nicely */}
-                  <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12}}>
-                     <select className="visily-input" required value={form.projectId} onChange={(e) => setForm({ ...form, projectId: e.target.value })} style={{color: form.projectId ? 'inherit' : '#999'}}>
+                  <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 12}}>
+                     <select 
+                       className="visily-input" 
+                       required 
+                       value={form.projectId} 
+                       onChange={(e) => {
+                         const selProj = projects.find(p => p.id === e.target.value);
+                         setForm({ ...form, projectId: e.target.value, projectName: selProj?.name || "", taskId: "", taskName: "" });
+                       }} 
+                       style={{color: form.projectId ? 'inherit' : '#999'}}>
                       <option value="" disabled hidden>Select project...</option>
-                      {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                      {visibleProjects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+                    </select>
+                    <select 
+                      className="visily-input" 
+                      required 
+                      value={form.taskId} 
+                      onChange={(e) => {
+                        const selTask = tasks.find(t => t.id === e.target.value);
+                        setForm({ ...form, taskId: e.target.value, taskName: selTask?.title || "" });
+                      }} 
+                      disabled={!form.projectId}
+                      style={{color: form.taskId ? 'inherit' : '#999'}}
+                    >
+                      <option value="" disabled hidden>{form.projectId ? "Select task..." : "First select project"}</option>
+                      {tasks.filter(t => t.projectId === form.projectId).map((t) => (
+                        <option key={t.id} value={t.id}>{t.title}</option>
+                      ))}
                     </select>
                     <input type="text" onFocus={e => e.target.type='date'} onBlur={e => {if(!e.target.value) e.target.type='text'}} className="visily-input" required value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} placeholder="Date" />
                   </div>
@@ -520,11 +742,6 @@ export default function ReportsPage() {
 
                   <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12}}>
                     <input className="visily-input" value={form.workforce} onChange={(e) => setForm({ ...form, workforce: e.target.value })} placeholder="Workforce (pax)" />
-                    <input className="visily-input" value={form.equipment} onChange={(e) => setForm({ ...form, equipment: e.target.value })} placeholder="Equipment" />
-                  </div>
-
-                  <div style={{display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12}}>
-                    <input className="visily-input" value={form.materials} onChange={(e) => setForm({ ...form, materials: e.target.value })} placeholder="Materials Used" />
                     <div>
                       {/* Weather — live badge (API) or custom pill selector */}
                       {weatherInfo ? (
@@ -570,6 +787,94 @@ export default function ReportsPage() {
                         </div>
                       )}
                     </div>
+                  </div>
+
+                  {/* Equipment Selection */}
+                  <div>
+                    <label style={{fontSize: '0.85rem', color: 'var(--text-primary)', marginBottom: 6, display: 'block', fontWeight: 600}}>Equipment Used</label>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+                      {EQUIPMENT_OPTIONS.map(eq => {
+                        const isSelected = selectedEquipment.includes(eq);
+                        return (
+                          <button
+                            key={eq}
+                            type="button"
+                            onClick={() => {
+                              if (selectedEquipment.includes(eq)) {
+                                setSelectedEquipment(selectedEquipment.filter(e => e !== eq));
+                              } else {
+                                setSelectedEquipment([...selectedEquipment, eq]);
+                              }
+                            }}
+                            style={{
+                              padding: '5px 12px',
+                              borderRadius: 20,
+                              border: `1px solid ${isSelected ? '#F56A6A' : 'var(--border)'}`,
+                              background: isSelected ? 'rgba(245, 106, 106, 0.15)' : 'var(--bg-surface)',
+                              color: isSelected ? '#F56A6A' : 'var(--text-primary)',
+                              fontSize: '0.78rem',
+                              fontWeight: 600,
+                              cursor: 'pointer',
+                              transition: 'all 0.15s',
+                            }}
+                          >
+                            {eq}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {selectedEquipment.includes("Other") && (
+                      <input
+                        className="visily-input"
+                        value={customEquipment}
+                        onChange={e => setCustomEquipment(e.target.value)}
+                        placeholder="Specify other equipment (comma separated)..."
+                      />
+                    )}
+                  </div>
+
+                  {/* Materials Selection */}
+                  <div>
+                    <label style={{fontSize: '0.85rem', color: 'var(--text-primary)', marginBottom: 6, display: 'block', fontWeight: 600}}>Materials Used</label>
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
+                      {MATERIALS_OPTIONS.map(mat => {
+                        const isSelected = selectedMaterials.includes(mat);
+                        return (
+                          <button
+                            key={mat}
+                            type="button"
+                            onClick={() => {
+                              if (selectedMaterials.includes(mat)) {
+                                setSelectedMaterials(selectedMaterials.filter(m => m !== mat));
+                              } else {
+                                setSelectedMaterials([...selectedMaterials, mat]);
+                              }
+                            }}
+                            style={{
+                              padding: '5px 12px',
+                              borderRadius: 20,
+                              border: `1px solid ${isSelected ? '#F56A6A' : 'var(--border)'}`,
+                              background: isSelected ? 'rgba(245, 106, 106, 0.15)' : 'var(--bg-surface)',
+                              color: isSelected ? '#F56A6A' : 'var(--text-primary)',
+                              fontSize: '0.78rem',
+                              fontWeight: 600,
+                              cursor: 'pointer',
+                              transition: 'all 0.15s',
+                            }}
+                          >
+                            {mat}
+                          </button>
+                        );
+                      })}
+                    </div>
+                    {selectedMaterials.includes("Other") && (
+                      <input
+                        className="visily-input"
+                        value={customMaterials}
+                        onChange={e => setCustomMaterials(e.target.value)}
+                        placeholder="Specify other materials (comma separated)..."
+                      />
+                    )}
                   </div>
                   
                   <input className="visily-input" value={form.issues} onChange={(e) => setForm({ ...form, issues: e.target.value })} placeholder="Issues / Problems (if any)" />

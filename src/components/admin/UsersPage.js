@@ -273,6 +273,10 @@ export default function UsersPage() {
                           <p className="user-email">
                             <Mail size={11} style={{ marginRight: 4 }} />{user.email}
                           </p>
+                          <p className="user-password" style={{ fontSize: "0.82rem", color: "var(--text-secondary)", marginTop: 4, display: "flex", alignItems: "center" }}>
+                            <KeyRound size={11} style={{ marginRight: 4 }} />
+                            Password: <span style={{ fontFamily: "monospace", fontWeight: 600, marginLeft: 2 }}>{user.password || "••••••••"}</span>
+                          </p>
                         </div>
                       </div>
 

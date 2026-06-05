@@ -3,12 +3,14 @@ import React, { useState, useEffect } from "react";
 import { Bell, Search, X, Moon, Sun, Menu } from "lucide-react";
 import { useAuth } from "../../contexts/AuthContext";
 import { useTheme } from "../../contexts/ThemeContext";
+import { useNavigate } from "react-router-dom";
 import { subscribeNotifications, markNotificationRead } from "../../firebase/services";
 import "./Topbar.css";
 
 export default function Topbar({ title }) {
   const { user } = useAuth();
   const { isDarkMode, toggleTheme } = useTheme();
+  const navigate = useNavigate();
   const [notifications, setNotifications] = useState([]);
   const [showDropdown, setShowDropdown] = useState(false);
 
@@ -60,10 +62,14 @@ export default function Topbar({ title }) {
                   <p className="notif-empty">No notifications yet</p>
                 ) : (
                   notifications.slice(0, 10).map((n) => (
-                    <div
+                     <div
                       key={n.id}
                       className={`notif-item ${n.read ? "read" : "unread"}`}
-                      onClick={() => handleMarkRead(n.id)}
+                      onClick={async () => {
+                        handleMarkRead(n.id);
+                        setShowDropdown(false);
+                        if (n.link) navigate(n.link);
+                      }}
                     >
                       <div className="notif-dot" />
                       <div>

@@ -40,6 +40,11 @@ export default function Sidebar() {
     return () => window.removeEventListener('toggle-sidebar', handler);
   }, []);
 
+  React.useEffect(() => {
+    document.body.classList.toggle("sidebar-collapsed", collapsed);
+    return () => document.body.classList.remove("sidebar-collapsed");
+  }, [collapsed]);
+
   const closeMobile = () => setMobileOpen(false);
 
   const handleLogout = async () => {

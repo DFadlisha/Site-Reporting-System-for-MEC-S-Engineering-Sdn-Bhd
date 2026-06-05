@@ -10,7 +10,7 @@ import Topbar from "../shared/Topbar";
 import {
   createProject, subscribeProjects, updateProject, deleteProject,
   createTask, subscribeTasks, updateTask, deleteTask,
-  getSystemUsers, createNotification,
+  getSystemUsers, createNotification, subscribeUserProjects,
 } from "../../firebase/services";
 import { useAuth } from "../../contexts/AuthContext";
 import toast from "react-hot-toast";
@@ -51,9 +51,9 @@ export default function TasksPage() {
   const [pForm, setPForm] = useState({
     name: "", description: "", location: "", startDate: "", endDate: "", priority: "",
   });
-  const [tForm, setTForm] = useState({
-    title: "", assignedTo: "", assignedToUid: "", dueDate: "", site: "", status: "",
-  });
+  const [tasksList, setTasksList] = useState([
+    { title: "", assignedTo: "", assignedToUid: "", dueDate: "", site: "", status: "todo" }
+  ]);
 
   // Edit-only task form
   const [editTForm, setEditTForm] = useState({
@@ -61,9 +61,9 @@ export default function TasksPage() {
   });
 
   useEffect(() => {
-    const unsub = subscribeProjects(setProjects);
+    const unsub = subscribeUserProjects(user?.uid, role, setProjects);
     return unsub;
-  }, []);
+  }, [user, role]);
 
   useEffect(() => {
     const unsub = subscribeTasks(selProject?.id || null, setTasks);
@@ -84,44 +84,57 @@ export default function TasksPage() {
     ? tasks.filter(t => t.assignedTo === profile?.name || t.assignedToUid === user?.uid)
     : tasks;
 
+  const visibleProjects = React.useMemo(() => {
+    if (isSupervisor) {
+      const myProjectIds = new Set(visibleTasks.map(t => t.projectId));
+      return projects.filter(p => myProjectIds.has(p.id));
+    }
+    return projects;
+  }, [projects, visibleTasks, isSupervisor]);
+
   // ── Combined Project + Task Submit (per wireframe) ──────────────
   const handleCreateProjectWithTask = async (e) => {
     e.preventDefault();
     setSaving(true);
     try {
-      // Step 1: Create the project
+      // Step 1: Create the project with user UID as creator
       const projectData = { ...pForm, priority: pForm.priority || "medium" };
-      const projectRef = await createProject(projectData);
+      const projectRef = await createProject(projectData, user?.uid);
       const projectId = projectRef.id;
 
-      // Step 2: Create the initial task if task name is filled
-      if (tForm.title.trim()) {
-        await createTask({
-          title: tForm.title,
-          assignedTo: tForm.assignedTo,
-          assignedToUid: tForm.assignedToUid,
-          dueDate: tForm.dueDate,
-          site: tForm.site,
-          status: tForm.status || "todo",
+      // Step 2: Create all tasks in tasksList
+      const taskPromises = tasksList
+        .filter(t => t.title.trim())
+        .map(t => createTask({
+          title: t.title,
+          assignedTo: t.assignedTo,
+          assignedToUid: t.assignedToUid,
+          dueDate: t.dueDate,
+          site: t.site,
+          status: t.status || "todo",
           priority: pForm.priority || "medium",
           projectId: projectId,
           projectName: pForm.name,
-        });
+        }));
 
-        // Notify the assigned supervisor
-        if (tForm.assignedToUid) {
+      await Promise.all(taskPromises);
+
+      // Notify the assigned supervisors
+      for (const t of tasksList) {
+        if (t.title.trim() && t.assignedToUid) {
           await createNotification(
-            tForm.assignedToUid,
-            `New task assigned: "${tForm.title}" in project "${pForm.name}".`,
-            "info"
+            t.assignedToUid,
+            `New task assigned: "${t.title}" in project "${pForm.name}".`,
+            "info",
+            "/tasks" // Redirect link
           );
         }
       }
 
-      toast.success("Project created with task!");
+      toast.success("Project created with tasks!");
       setShowProjectModal(false);
       setPForm({ name: "", description: "", location: "", startDate: "", endDate: "", priority: "" });
-      setTForm({ title: "", assignedTo: "", assignedToUid: "", dueDate: "", site: "", status: "" });
+      setTasksList([{ title: "", assignedTo: "", assignedToUid: "", dueDate: "", site: "", status: "todo" }]);
     } catch (err) {
       toast.error(err.message);
     } finally { setSaving(false); }
@@ -169,7 +182,8 @@ export default function TasksPage() {
         await createNotification(
           addTForm.assignedToUid,
           `New task assigned: "${addTForm.title}" in project "${selProject.name}".`,
-          "info"
+          "info",
+          "/tasks" // Redirect link
         );
       }
       toast.success("Task created & assigned!");
@@ -277,7 +291,7 @@ export default function TasksPage() {
                   const key = t.projectId || '__none__';
                   const label = t.projectName || 'Unassigned Project';
                   if (!grouped[key]) {
-                    const projDoc = projects.find(p => p.id === key);
+                    const projDoc = visibleProjects.find(p => p.id === key);
                     grouped[key] = { label, location: projDoc?.location || '', tasks: [] };
                   }
                   grouped[key].tasks.push(t);
@@ -502,11 +516,11 @@ export default function TasksPage() {
               value={selProject?.id || ""}
               onChange={(e) => {
                 if (!e.target.value) { setSelProject(null); }
-                else { setSelProject(projects.find(p => p.id === e.target.value) || null); }
+                else { setSelProject(visibleProjects.find(p => p.id === e.target.value) || null); }
               }}
             >
-              <option value="">All Projects ({projects.length})</option>
-              {projects.map((p) => (
+              <option value="">All Projects ({visibleProjects.length})</option>
+              {visibleProjects.map((p) => (
                 <option key={p.id} value={p.id}>{p.name}</option>
               ))}
             </select>
@@ -724,7 +738,7 @@ export default function TasksPage() {
          ══════════════════════════════════════════════════════════════ */}
       {showProjectModal && (
         <div className="modal-overlay" onClick={() => setShowProjectModal(false)}>
-          <div className="sp-modal" style={{ maxWidth: 480, padding: 32, borderRadius: 12, background: 'var(--bg-surface)', border: '1px solid var(--border)', boxShadow: 'var(--shadow-lg)' }} onClick={(e) => e.stopPropagation()}>
+          <div className="sp-modal" style={{ maxWidth: 540, padding: 32, borderRadius: 12, background: 'var(--bg-surface)', border: '1px solid var(--border)', boxShadow: 'var(--shadow-lg)' }} onClick={(e) => e.stopPropagation()}>
             <div className="d-flex justify-content-between align-items-center mb-4">
               <h5 style={{ fontWeight: 700, margin: 0, color: 'var(--text-primary)', fontFamily: 'var(--font-display)' }}>Project Form</h5>
             </div>
@@ -749,35 +763,118 @@ export default function TasksPage() {
 
               {/* ── Task Section ── */}
               <div style={{ marginTop: 8 }}>
-                <h6 style={{ fontWeight: 700, marginBottom: 16, color: 'var(--text-primary)' }}>
-                  Task Section
+                <h6 style={{ fontWeight: 700, marginBottom: 16, color: 'var(--text-primary)', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span>Tasks ({tasksList.length})</span>
+                  <button 
+                    type="button" 
+                    className="btn btn-sm"
+                    style={{ fontSize: '0.75rem', padding: '4px 10px', borderRadius: 12, border: '1px solid var(--accent)', color: 'var(--accent)', background: 'transparent' }}
+                    onClick={() => setTasksList([...tasksList, { title: "", assignedTo: "", assignedToUid: "", dueDate: "", site: "", status: "todo" }])}
+                  >
+                    + Add Task Row
+                  </button>
                 </h6>
-                <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                  <input className="visily-input" value={tForm.title} onChange={(e) => setTForm({ ...tForm, title: e.target.value })} placeholder="Task Name" />
-                  
-                  {supervisors.length > 0 ? (
-                    <select className="visily-input" style={{ color: tForm.assignedToUid === "" ? "var(--text-muted)" : "var(--text-primary)" }} value={tForm.assignedToUid} onChange={(e) => {
-                      const sv = supervisors.find(s => s.uid === e.target.value);
-                      setTForm({ ...tForm, assignedTo: sv ? sv.name : "", assignedToUid: e.target.value });
-                    }}>
-                      <option value="" disabled hidden>Assigned To</option>
-                      {supervisors.map((sv) => (
-                        <option key={sv.uid} value={sv.uid}>{sv.name}</option>
-                      ))}
-                    </select>
-                  ) : (
-                    <input className="visily-input" value={tForm.assignedTo} onChange={(e) => setTForm({ ...tForm, assignedTo: e.target.value })} placeholder="Assigned To" />
-                  )}
+                
+                <div style={{ display: "flex", flexDirection: "column", gap: 16, maxHeight: '250px', overflowY: 'auto', paddingRight: '4px' }}>
+                  {tasksList.map((t, index) => (
+                    <div key={index} style={{ border: '1px solid var(--border)', padding: 12, borderRadius: 8, background: 'var(--bg-base)', position: 'relative' }}>
+                      {tasksList.length > 1 && (
+                        <button 
+                          type="button" 
+                          style={{ position: 'absolute', top: 8, right: 8, background: 'none', border: 'none', color: 'var(--danger)', cursor: 'pointer' }}
+                          onClick={() => setTasksList(tasksList.filter((_, i) => i !== index))}
+                        >
+                          <X size={14} />
+                        </button>
+                      )}
+                      
+                      <div style={{ display: "flex", flexDirection: "column", gap: 10, marginTop: tasksList.length > 1 ? 12 : 0 }}>
+                        <input 
+                          className="visily-input" 
+                          required 
+                          value={t.title} 
+                          onChange={(e) => {
+                            const newList = [...tasksList];
+                            newList[index].title = e.target.value;
+                            setTasksList(newList);
+                          }} 
+                          placeholder={`Task ${index + 1} Name`} 
+                        />
+                        
+                        {supervisors.length > 0 ? (
+                          <select 
+                            className="visily-input" 
+                            style={{ color: t.assignedToUid === "" ? "var(--text-muted)" : "var(--text-primary)" }} 
+                            value={t.assignedToUid} 
+                            onChange={(e) => {
+                              const sv = supervisors.find(s => s.uid === e.target.value);
+                              const newList = [...tasksList];
+                              newList[index].assignedTo = sv ? sv.name : "";
+                              newList[index].assignedToUid = e.target.value;
+                              setTasksList(newList);
+                            }}
+                          >
+                            <option value="" disabled hidden>Assigned To</option>
+                            {supervisors.map((sv) => (
+                              <option key={sv.uid} value={sv.uid}>{sv.name}</option>
+                            ))}
+                          </select>
+                        ) : (
+                          <input 
+                            className="visily-input" 
+                            value={t.assignedTo} 
+                            onChange={(e) => {
+                              const newList = [...tasksList];
+                              newList[index].assignedTo = e.target.value;
+                              setTasksList(newList);
+                            }} 
+                            placeholder="Assigned To" 
+                          />
+                        )}
 
-                  <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16 }}>
-                    <input type="text" onFocus={(e) => e.target.type = 'date'} onBlur={(e) => {if(!e.target.value) e.target.type='text'}} className="visily-input" value={tForm.dueDate} onChange={(e) => setTForm({ ...tForm, dueDate: e.target.value })} placeholder="Due Date" />
-                    <input className="visily-input" value={tForm.site} onChange={(e) => setTForm({ ...tForm, site: e.target.value })} placeholder="Site" />
-                  </div>
-                  
-                  <select className="visily-input" style={{ color: tForm.status === "" ? "var(--text-muted)" : "var(--text-primary)" }} value={tForm.status} onChange={(e) => setTForm({ ...tForm, status: e.target.value })}>
-                    <option value="" disabled hidden>Status</option>
-                    {STATUS_OPTIONS.map((s) => <option key={s} value={s}>{s === "inprogress" ? "In Progress" : s.charAt(0).toUpperCase() + s.slice(1)}</option>)}
-                  </select>
+                        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+                          <input 
+                            type="text" 
+                            onFocus={(e) => e.target.type = 'date'} 
+                            onBlur={(e) => {if(!e.target.value) e.target.type='text'}} 
+                            className="visily-input" 
+                            value={t.dueDate} 
+                            onChange={(e) => {
+                              const newList = [...tasksList];
+                              newList[index].dueDate = e.target.value;
+                              setTasksList(newList);
+                            }} 
+                            placeholder="Due Date" 
+                          />
+                          <input 
+                            className="visily-input" 
+                            value={t.site} 
+                            onChange={(e) => {
+                              const newList = [...tasksList];
+                              newList[index].site = e.target.value;
+                              setTasksList(newList);
+                            }} 
+                            placeholder="Site" 
+                          />
+                        </div>
+                        
+                        <select 
+                          className="visily-input" 
+                          style={{ color: t.status === "" ? "var(--text-muted)" : "var(--text-primary)" }} 
+                          value={t.status} 
+                          onChange={(e) => {
+                            const newList = [...tasksList];
+                            newList[index].status = e.target.value;
+                            setTasksList(newList);
+                          }}
+                        >
+                          <option value="todo">To Do</option>
+                          <option value="inprogress">In Progress</option>
+                          <option value="done">Done</option>
+                        </select>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
 

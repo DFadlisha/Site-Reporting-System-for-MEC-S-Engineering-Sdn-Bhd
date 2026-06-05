@@ -1,6 +1,7 @@
 // src/components/notifications/NotificationsPage.js
 import React, { useEffect, useState } from "react";
 import { Bell, CheckCheck, Info, CheckCircle, AlertTriangle, XCircle, BellOff } from "lucide-react";
+import { useNavigate } from "react-router-dom";
 import Topbar from "../shared/Topbar";
 import { subscribeNotifications, markNotificationRead } from "../../firebase/services";
 import { useAuth } from "../../contexts/AuthContext";
@@ -25,6 +26,7 @@ function getTypeConfig(type) {
 
 export default function NotificationsPage() {
   const { user } = useAuth();
+  const navigate = useNavigate();
   const [notifications, setNotifications] = useState([]);
   const [filter, setFilter] = useState("all"); // all | unread | read
 
@@ -130,13 +132,16 @@ export default function NotificationsPage() {
               return (
                 <div
                   key={n.id}
-                  onClick={() => !n.read && markNotificationRead(n.id)}
+                  onClick={async () => {
+                    if (!n.read) await markNotificationRead(n.id);
+                    if (n.link) navigate(n.link);
+                  }}
                   style={{
                     display: "flex", gap: 14, alignItems: "flex-start",
                     padding: "14px 18px", borderRadius: 12,
                     background: n.read ? "var(--bg-elevated)" : "var(--bg-card)",
                     border: `1px solid ${n.read ? "var(--border)" : cfg.color + "55"}`,
-                    cursor: n.read ? "default" : "pointer",
+                    cursor: "pointer",
                     transition: "all 0.15s",
                     opacity: n.read ? 0.75 : 1,
                     boxShadow: n.read ? "none" : "0 2px 8px rgba(0,0,0,0.12)",

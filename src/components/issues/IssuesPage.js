@@ -68,7 +68,8 @@ export default function IssuesPage() {
           await createNotification(
             c.uid,
             `New issue reported: "${form.title}" (${form.priority} priority) at ${project?.name || 'Unknown site'}. Reported by ${profile?.name}.`,
-            form.priority === 'high' ? 'warning' : 'info'
+            form.priority === 'high' ? 'warning' : 'info',
+            "/issues" // Redirect link
           );
         }
       } catch (notifErr) { console.error('Issue notification error:', notifErr); }
@@ -109,7 +110,8 @@ export default function IssuesPage() {
         await createNotification(
           resolveTarget.reportedByUid || "",
           `Issue "${resolveTarget.title}" has been ${resolveStatus === "resolved" ? "resolved" : "updated to " + resolveStatus}. ${resolveComment ? "Comment: " + resolveComment : ""}`,
-          resolveStatus === "resolved" ? "success" : "info"
+          resolveStatus === "resolved" ? "success" : "info",
+          "/issues" // Redirect link
         ).catch(() => {});
       }
       toast.success(`Issue ${resolveStatus === "resolved" ? "resolved" : "updated"}`);

@@ -304,7 +304,11 @@ export default function AdminDashboard() {
                     <div
                       key={n.id}
                       className={`adb-notif-row ${!n.read ? "unread" : ""}`}
-                      onClick={() => !n.read && markNotificationRead(n.id)}
+                      style={{ cursor: "pointer" }}
+                      onClick={async () => {
+                        if (!n.read) await markNotificationRead(n.id);
+                        if (n.link) navigate(n.link);
+                      }}
                     >
                       <div className="adb-notif-dot" style={{
                         background: n.type === "success" ? "var(--success)"
