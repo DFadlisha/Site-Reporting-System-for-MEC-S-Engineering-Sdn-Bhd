@@ -25,7 +25,6 @@ const ADMIN_NAV = [
   { to: "/notifications", icon: Bell,            label: "Notifications" },
   { to: "/users",         icon: Users,           label: "User Management" },
   { to: "/audit",         icon: Activity,        label: "Progress Audit" },
-  { to: "/admin-notify",  icon: Megaphone,       label: "Notification Management" },
 ];
 
 export default function Sidebar() {

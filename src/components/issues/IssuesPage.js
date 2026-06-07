@@ -2,12 +2,12 @@
 import React, { useEffect, useState } from "react";
 import { Plus, AlertTriangle, CheckCircle, Loader2, MessageSquare } from "lucide-react";
 import Topbar from "../shared/Topbar";
-import { createIssue, subscribeIssues, updateIssue, subscribeProjects, createNotification } from "../../firebase/services";
+import { createIssue, subscribeIssues, updateIssue, subscribeUserProjects, createNotification } from "../../firebase/services";
 import { useAuth } from "../../contexts/AuthContext";
 import toast from "react-hot-toast";
 
 export default function IssuesPage() {
-  const { profile } = useAuth();
+  const { profile, user } = useAuth();
   const role = profile?.role?.toLowerCase() || "";
   const isConsultant = role === "consultant";
   const isAdmin = role === "admin";
@@ -41,9 +41,9 @@ export default function IssuesPage() {
 
   useEffect(() => {
     const u1 = subscribeIssues(setIssues);
-    const u2 = subscribeProjects(setProjects);
+    const u2 = subscribeUserProjects(user?.uid, role, setProjects);
     return () => { u1(); u2(); };
-  }, []);
+  }, [user, role]);
 
   // Supervisor: Report new issue with priority and description
   const handleSubmit = async (e) => {
@@ -122,11 +122,17 @@ export default function IssuesPage() {
     setResolveTarget(null);
   };
 
-  const filtered = issues.filter((i) => {
-    if (filter !== "all" && i.status !== filter) return false;
-    if (filterSite !== "all" && i.projectId !== filterSite) return false;
-    return true;
-  });
+  const projectIdsSet = React.useMemo(() => new Set(projects.map(p => p.id)), [projects]);
+
+  const filtered = React.useMemo(() => {
+    return issues
+      .filter((i) => projectIdsSet.has(i.projectId))
+      .filter((i) => {
+        if (filter !== "all" && i.status !== filter) return false;
+        if (filterSite !== "all" && i.projectId !== filterSite) return false;
+        return true;
+      });
+  }, [issues, projectIdsSet, filter, filterSite]);
 
   const handleResetFilters = () => {
     setFilter("all");

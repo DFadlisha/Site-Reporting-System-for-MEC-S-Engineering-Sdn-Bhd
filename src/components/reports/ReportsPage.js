@@ -90,12 +90,15 @@ export default function ReportsPage() {
     return null;
   };
 
+  const projectIdsSet = React.useMemo(() => new Set(projects.map(p => p.id)), [projects]);
+
   const visibleTasks = React.useMemo(() => {
+    const baseTasks = tasks.filter(t => projectIdsSet.has(t.projectId));
     if (isSupervisor) {
-      return tasks.filter(t => t.assignedTo === profile?.name || t.assignedToUid === user?.uid);
+      return baseTasks.filter(t => t.assignedTo === profile?.name || t.assignedToUid === user?.uid);
     }
-    return tasks;
-  }, [tasks, isSupervisor, profile?.name, user?.uid]);
+    return baseTasks;
+  }, [tasks, projectIdsSet, isSupervisor, profile, user]);
 
   const visibleProjects = React.useMemo(() => {
     if (isSupervisor) {
@@ -269,32 +272,38 @@ export default function ReportsPage() {
     }
   };
 
-  const filtered = reports.filter(r => {
-    if (filterStatus !== "all" && r.status !== filterStatus) return false;
-    if (filterProject && r.projectId !== filterProject) return false;
-    if (filterSearch && !r.title?.toLowerCase().includes(filterSearch.toLowerCase()) && !r.projectName?.toLowerCase().includes(filterSearch.toLowerCase())) return false;
-    
-    // Month filter
-    if (filterMonth !== "all") {
-      const monthNum = getReportMonth(r.date);
-      if (monthNum !== parseInt(filterMonth, 10)) return false;
-    }
+  const allowedReports = React.useMemo(() => {
+    return reports.filter(r => projectIdsSet.has(r.projectId));
+  }, [reports, projectIdsSet]);
 
-    const proj = projects.find(p => p.id === r.projectId);
+  const filtered = React.useMemo(() => {
+    return allowedReports.filter(r => {
+      if (filterStatus !== "all" && r.status !== filterStatus) return false;
+      if (filterProject && r.projectId !== filterProject) return false;
+      if (filterSearch && !r.title?.toLowerCase().includes(filterSearch.toLowerCase()) && !r.projectName?.toLowerCase().includes(filterSearch.toLowerCase())) return false;
+      
+      // Month filter
+      if (filterMonth !== "all") {
+        const monthNum = getReportMonth(r.date);
+        if (monthNum !== parseInt(filterMonth, 10)) return false;
+      }
 
-    // Location filter
-    if (filterLocation && proj?.location !== filterLocation) return false;
+      const proj = projects.find(p => p.id === r.projectId);
 
-    // Priority filter
-    if (filterPriority !== "all" && (proj?.priority || "medium") !== filterPriority) return false;
+      // Location filter
+      if (filterLocation && proj?.location !== filterLocation) return false;
 
-    return true;
-  });
+      // Priority filter
+      if (filterPriority !== "all" && (proj?.priority || "medium") !== filterPriority) return false;
 
-  const totalReports = reports.length;
-  const pendingReports = reports.filter(r => r.status === "pending").length;
-  const approvedReports = reports.filter(r => r.status === "approved").length;
-  const rejectedReports = reports.filter(r => r.status === "rejected").length;
+      return true;
+    });
+  }, [allowedReports, filterStatus, filterProject, filterSearch, filterMonth, filterLocation, filterPriority, projects]);
+
+  const totalReports = allowedReports.length;
+  const pendingReports = allowedReports.filter(r => r.status === "pending").length;
+  const approvedReports = allowedReports.filter(r => r.status === "approved").length;
+  const rejectedReports = allowedReports.filter(r => r.status === "rejected").length;
 
   const handleExportCSV = () => {
     let csv = "Title,Project,Date,Submitted By,Status,Weather,Workforce,Issues\n";

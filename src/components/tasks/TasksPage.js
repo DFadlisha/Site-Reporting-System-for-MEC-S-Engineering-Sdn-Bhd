@@ -50,6 +50,7 @@ export default function TasksPage() {
   // Combined Project + Task form (per wireframe)
   const [pForm, setPForm] = useState({
     name: "", description: "", location: "", startDate: "", endDate: "", priority: "",
+    supervisorUid: "", supervisorName: "",
   });
   const [tasksList, setTasksList] = useState([
     { title: "", assignedTo: "", assignedToUid: "", dueDate: "", site: "", status: "todo" }
@@ -79,10 +80,16 @@ export default function TasksPage() {
     }
   }, [canManageTasks]);
 
-  // ── For Supervisor: filter tasks to only those assigned to them ──
-  const visibleTasks = isSupervisor
-    ? tasks.filter(t => t.assignedTo === profile?.name || t.assignedToUid === user?.uid)
-    : tasks;
+  const projectIdsSet = React.useMemo(() => new Set(projects.map(p => p.id)), [projects]);
+
+  // ── Filter tasks to only those belonging to visible projects ──
+  const visibleTasks = React.useMemo(() => {
+    const baseTasks = tasks.filter(t => projectIdsSet.has(t.projectId));
+    if (isSupervisor) {
+      return baseTasks.filter(t => t.assignedTo === profile?.name || t.assignedToUid === user?.uid);
+    }
+    return baseTasks;
+  }, [tasks, projectIdsSet, isSupervisor, profile, user]);
 
   const visibleProjects = React.useMemo(() => {
     if (isSupervisor) {
@@ -133,7 +140,7 @@ export default function TasksPage() {
 
       toast.success("Project created with tasks!");
       setShowProjectModal(false);
-      setPForm({ name: "", description: "", location: "", startDate: "", endDate: "", priority: "" });
+      setPForm({ name: "", description: "", location: "", startDate: "", endDate: "", priority: "", supervisorUid: "", supervisorName: "" });
       setTasksList([{ title: "", assignedTo: "", assignedToUid: "", dueDate: "", site: "", status: "todo" }]);
     } catch (err) {
       toast.error(err.message);
@@ -758,6 +765,24 @@ export default function TasksPage() {
                 <select className="visily-input" style={{ color: pForm.priority === "" ? "var(--text-muted)" : "var(--text-primary)" }} value={pForm.priority} onChange={(e) => setPForm({ ...pForm, priority: e.target.value })}>
                   <option value="" disabled hidden>Priority</option>
                   {PRIORITY_OPTIONS.map((p) => <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>)}
+                </select>
+              </div>
+
+              <div style={{ marginTop: 8 }}>
+                <select 
+                  className="visily-input" 
+                  required
+                  style={{ color: !pForm.supervisorUid ? "var(--text-muted)" : "var(--text-primary)" }} 
+                  value={pForm.supervisorUid || ""} 
+                  onChange={(e) => {
+                    const sv = supervisors.find(u => u.uid === e.target.value);
+                    setPForm({ ...pForm, supervisorUid: e.target.value, supervisorName: sv ? sv.name : "" });
+                  }}
+                >
+                  <option value="" disabled hidden>Assign Site Supervisor *</option>
+                  {supervisors.map((sv) => (
+                    <option key={sv.uid} value={sv.uid}>{sv.name} ({sv.email})</option>
+                  ))}
                 </select>
               </div>
 

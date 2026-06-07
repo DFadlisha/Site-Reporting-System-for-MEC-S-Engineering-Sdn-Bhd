@@ -86,19 +86,28 @@ export const logoutUser = () => signOut(auth);
 export const getUserProfile = async (uid) => {
   const q = query(collection(db, "users"), where("uid", "==", uid));
   const snap = await getDocs(q);
-  if (!snap.empty) return { id: snap.docs[0].id, ...snap.docs[0].data() };
+  if (!snap.empty) {
+    const data = snap.docs[0].data();
+    return { id: snap.docs[0].id, ...data, status: data.status || "approved" };
+  }
   return null;
 };
 
 export const getSystemUsers = async () => {
   const snap = await getDocs(query(collection(db, "users"), orderBy("createdAt", "desc")));
-  return snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+  return snap.docs.map((d) => {
+    const data = d.data();
+    return { id: d.id, ...data, status: data.status || "approved" };
+  });
 };
 
 export const subscribeSystemUsers = (callback) =>
   onSnapshot(
     query(collection(db, "users"), orderBy("createdAt", "desc")),
-    (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
+    (snap) => callback(snap.docs.map((d) => {
+      const data = d.data();
+      return { id: d.id, ...data, status: data.status || "approved" };
+    }))
   );
 
 export const updateUserStatus = async (id, data) =>
@@ -183,7 +192,7 @@ export const subscribeProjects = (callback) =>
 /**
  * Subscribe to projects scoped by user role:
  * - Consultant: only projects they created
- * - Supervisor: all projects (filtered client-side by assigned tasks)
+ * - Supervisor: only projects they are assigned to (where supervisorUid == uid)
  * - Admin: all projects
  */
 export const subscribeUserProjects = (uid, role, callback) => {
@@ -193,7 +202,13 @@ export const subscribeUserProjects = (uid, role, callback) => {
       (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
     );
   }
-  // Admin and Supervisor see all projects (supervisor filters client-side by tasks)
+  if (role === "supervisor") {
+    return onSnapshot(
+      query(collection(db, "projects"), where("supervisorUid", "==", uid), orderBy("createdAt", "desc")),
+      (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
+    );
+  }
+  // Admin sees all projects
   return subscribeProjects(callback);
 };
 

@@ -93,10 +93,27 @@ export default function Dashboard() {
     return () => { u1(); u2(); u3(); u4(); if(u5) u5(); };
   }, [user, role]);
 
-  // ── Role-specific computed metrics ──────────────────────────────
-  const myTasks = isSupervisor
-    ? tasks.filter(t => t.assignedTo === profile?.name || t.assignedToUid === user?.uid)
-    : tasks;
+  // ── Project & Data Isolation ──────────────────────────────
+  const projectIdsSet = useMemo(() => new Set(projects.map(p => p.id)), [projects]);
+
+  const filteredTasks = useMemo(() => {
+    return tasks.filter(t => projectIdsSet.has(t.projectId));
+  }, [tasks, projectIdsSet]);
+
+  const filteredReports = useMemo(() => {
+    return reports.filter(r => projectIdsSet.has(r.projectId));
+  }, [reports, projectIdsSet]);
+
+  const filteredIssues = useMemo(() => {
+    return issues.filter(i => projectIdsSet.has(i.projectId));
+  }, [issues, projectIdsSet]);
+
+  const myTasks = useMemo(() => {
+    if (isSupervisor) {
+      return filteredTasks.filter(t => t.assignedTo === profile?.name || t.assignedToUid === user?.uid);
+    }
+    return filteredTasks;
+  }, [filteredTasks, isSupervisor, profile, user]);
 
   const visibleProjects = useMemo(() => {
     if (isSupervisor) {
@@ -108,13 +125,13 @@ export default function Dashboard() {
 
   const doneTasks     = myTasks.filter((t) => t.status === "done").length;
   const inProgressTasks = myTasks.filter((t) => t.status === "inprogress").length;
-  const pendingReports = reports.filter((r) => r.status === "pending").length;
-  const openIssues    = issues.filter((i) => i.status === "open").length;
+  const pendingReports = filteredReports.filter((r) => r.status === "pending").length;
+  const openIssues    = filteredIssues.filter((i) => i.status === "open").length;
 
   // ── Role-specific stat cards (per flowchart) ────────────────────
   const consultantStats = [
     { label: "Active Projects",  value: visibleProjects.length, icon: FolderOpen,   color: themeColors.info },
-    { label: "Tasks Created",    value: tasks.length,    icon: CheckSquare,  color: themeColors.success },
+    { label: "Tasks Created",    value: filteredTasks.length,    icon: CheckSquare,  color: themeColors.success },
     { label: "Pending Reviews",  value: pendingReports,  icon: FileText,     color: themeColors.warning },
     { label: "Open Issues",      value: openIssues,      icon: AlertTriangle,color: themeColors.danger },
   ];
@@ -198,7 +215,7 @@ export default function Dashboard() {
     }
   }), [themeColors]);
 
-  const taskData = isSupervisor ? myTasks : tasks;
+  const taskData = isSupervisor ? myTasks : filteredTasks;
   const doughnutData = useMemo(() => ({
     labels: ['To Do', 'In Progress', 'Done'],
     datasets: [{
@@ -436,7 +453,7 @@ export default function Dashboard() {
                     <div style={{ flex: '1 1 200px', minWidth: 0 }}>
                       <div className="fw-semibold" style={{ color: 'var(--text-primary)', fontSize: '0.9rem' }}>{p.name}</div>
                       <div className="small d-flex align-items-center gap-1 mt-1" style={{ color: 'var(--text-secondary)' }}>
-                        <Clock size={11} /> {p.location || '—'}
+                        <Clock size={11} /> {p.location || '—'}{p.supervisorName ? ` · Supervisor: ${p.supervisorName}` : ''}
                       </div>
                     </div>
 
@@ -787,6 +804,10 @@ export default function Dashboard() {
                   <span className="info-value">{selectedExportProject.location || "N/A"}</span>
                 </div>
                 <div className="info-item">
+                  <span className="info-label">Supervisor:</span>
+                  <span className="info-value">{selectedExportProject.supervisorName || "N/A"}</span>
+                </div>
+                <div className="info-item">
                   <span className="info-label">Status:</span>
                   <span className="info-value status-tag">{selectedExportProject.status?.toUpperCase()}</span>
                 </div>
@@ -897,6 +918,7 @@ export default function Dashboard() {
               <div className="info-grid">
                 <div className="info-item"><span className="info-label">Project:</span><span className="info-value">{selectedExportProject.name}</span></div>
                 <div className="info-item"><span className="info-label">Location:</span><span className="info-value">{selectedExportProject.location || 'N/A'}</span></div>
+                <div className="info-item"><span className="info-label">Supervisor:</span><span className="info-value">{selectedExportProject.supervisorName || 'N/A'}</span></div>
                 <div className="info-item"><span className="info-label">Start Date:</span><span className="info-value">{selectedExportProject.startDate || 'N/A'}</span></div>
                 <div className="info-item"><span className="info-label">End Date:</span><span className="info-value">{selectedExportProject.endDate || 'N/A'}</span></div>
                 <div className="info-item"><span className="info-label">Progress:</span><span className="info-value">{selectedExportProject.progress || 0}%</span></div>

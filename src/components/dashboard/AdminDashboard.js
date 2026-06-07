@@ -406,16 +406,6 @@ export default function AdminDashboard() {
                   </div>
                   <ArrowRight size={14} style={{ color: "var(--text-muted)", marginLeft: "auto" }} />
                 </button>
-                <button className="adb-quick-link" onClick={() => navigate("/admin-notify")}>
-                  <div className="adb-ql-icon" style={{ background: "rgba(63,185,80,0.12)", color: "var(--success)" }}>
-                    <Megaphone size={16} />
-                  </div>
-                  <div>
-                    <div className="adb-ql-label">Send Notification</div>
-                    <div className="adb-ql-sub">Broadcast to users or roles</div>
-                  </div>
-                  <ArrowRight size={14} style={{ color: "var(--text-muted)", marginLeft: "auto" }} />
-                </button>
                 <button className="adb-quick-link" onClick={() => navigate("/notifications")}>
                   <div className="adb-ql-icon" style={{ background: "rgba(88,166,255,0.12)", color: "var(--accent)" }}>
                     <Bell size={16} />
