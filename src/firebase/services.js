@@ -418,6 +418,4 @@ export const subscribeAuditLogs = (callback) =>
     (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
   );
 
-// ─── SEED DATA REMOVED ────────────────────────────────────────
-// seedDummyData has been removed from production code.
-// Use the importExcel script or Firebase console to manage test data.
+

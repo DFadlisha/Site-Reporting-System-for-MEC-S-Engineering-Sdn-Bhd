@@ -82,6 +82,13 @@
   background: var(--bg-elevated);
   border-radius: var(--radius-md);
   margin-bottom: 8px;
+  overflow: hidden;
+  max-width: 100%;
+}
+.sidebar-profile-info {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
 }
 .sidebar-avatar {
   width: 34px; height: 34px;
@@ -96,15 +103,22 @@
 }
 .sidebar-profile-name {
   display: block;
-  font-size: 0.875rem;
+  font-size: 0.8rem;
   font-weight: 600;
-  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  line-height: 1.3;
 }
 .sidebar-profile-role {
   display: block;
   font-size: 0.7rem;
   color: var(--text-secondary);
   text-transform: capitalize;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 /* Nav */

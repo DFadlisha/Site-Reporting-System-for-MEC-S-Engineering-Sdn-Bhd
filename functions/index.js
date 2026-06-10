@@ -174,73 +174,7 @@ exports.onUserStatusChanged = functions.firestore
     return null;
   });
 
-// ─── 4. DATA SEEDING (CALLABLE) ───────────────────────────────
 
-// Seed demo data for presentations
-exports.seedPresentationData = functions.https
-  .onCall(async (data, context) => {
-    if (!context.auth) {
-      throw new functions.https.HttpsError(
-        "unauthenticated",
-        "Login required to seed data."
-      );
-    }
-
-    const batch = db.batch();
-    const ts =
-      admin.firestore.FieldValue.serverTimestamp();
-
-    // Project
-    const pRef = db.collection("projects").doc();
-    batch.set(pRef, {
-      name: "MRT Line 3 Extension",
-      location: "KL City Centre",
-      status: "active",
-      progress: 45,
-      createdAt: ts,
-    });
-
-    // Tasks
-    const t1 = db.collection("tasks").doc();
-    batch.set(t1, {
-      projectId: pRef.id,
-      title: "Site Clearance",
-      status: "done",
-      assignedTo: "Supervisor A",
-      createdAt: ts,
-    });
-
-    const t2 = db.collection("tasks").doc();
-    batch.set(t2, {
-      projectId: pRef.id,
-      title: "Excavation Works",
-      status: "inprogress",
-      assignedTo: "Supervisor B",
-      createdAt: ts,
-    });
-
-    const t3 = db.collection("tasks").doc();
-    batch.set(t3, {
-      projectId: pRef.id,
-      title: "Foundation Laying",
-      status: "todo",
-      assignedTo: "Consultant C",
-      createdAt: ts,
-    });
-
-  // Issue
-  const iRef = db.collection("issues").doc();
-  batch.set(iRef, {
-    projectId: pRef.id,
-    title: "Heavy rain delay",
-    severity: "high",
-    status: "open",
-    createdAt: ts,
-  });
-
-  await batch.commit();
-  return { message: "Demo data seeded!" };
-});
 
 // ─── 5. ENTERPRISE MODULE EXPORTS ───────────────────────────────────────────
 const apiModule = require("./api");
@@ -248,7 +182,6 @@ const auditModule = require("./audit");
 const cronModule = require("./cron");
 const rbacModule = require("./rbac");
 const exportsModule = require("./exports_pdf");
-const seederModule = require("./seeder");
 const inventoryModule = require("./inventory");
 
 // Export REST APIs
@@ -266,8 +199,7 @@ exports.rbac = rbacModule;
 // Export Aggregation Utilities
 exports.reportsHelper = exportsModule;
 
-// Export Heavy Simulation Seeder
-exports.simulations = seederModule;
+
 
 // Export Inventory and Forecasting Logic
 exports.inventory = inventoryModule;

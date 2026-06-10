@@ -312,14 +312,8 @@ export default function TasksPage() {
                   return (
                     <div key={pid} style={{ marginBottom: 32 }}>
                       {/* Project header */}
-                      <div style={{
-                        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-                        marginBottom: 12, padding: '12px 16px',
-                        background: 'var(--bg-elevated)', border: '1px solid var(--border)',
-                        borderRadius: 8, borderLeft: '4px solid var(--accent)',
-                        boxShadow: 'var(--shadow-sm)'
-                      }}>
-                        <div style={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                      <div className="tk-supervisor-proj-header">
+                        <div className="tk-supervisor-proj-info">
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                             <FolderOpen size={18} color="var(--accent)" />
                             <span style={{ fontWeight: 800, fontSize: '1.05rem', color: 'var(--text-primary)' }}>{group.label}</span>
@@ -336,7 +330,7 @@ export default function TasksPage() {
                           </div>
                         </div>
                         {/* Mini progress bar */}
-                        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 4 }}>
+                        <div className="tk-supervisor-proj-progress">
                           <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
                             <div style={{ width: 120, height: 8, background: 'var(--bg-base)', borderRadius: 99, border: '1px solid var(--border)' }}>
                               <div style={{ width: `${pct}%`, height: '100%', background: pct === 100 ? 'var(--success)' : 'var(--accent)', borderRadius: 99, transition: 'width 0.4s' }} />
@@ -663,10 +657,10 @@ export default function TasksPage() {
                         <span className={`badge badge-${task.status || 'todo'}`}>{task.status === "inprogress" ? "In Progress" : task.status === "todo" ? "To Do" : "Done"}</span>
                       </div>
                       <div className="tk-card-footer" style={{ borderTop: 'none', paddingTop: 0 }}>
-                        <div className="tk-card-meta" style={{ fontSize: '0.75rem', color: 'var(--text-secondary)', display: 'flex', alignItems: 'center', gap: 12 }}>
-                          {task.assignedTo && <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><User size={11} /> {task.assignedTo}</span>}
-                          {task.dueDate && <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><Calendar size={11} /> {task.dueDate}</span>}
-                          {task.projectName && <span style={{ display: 'flex', alignItems: 'center', gap: 4 }}><FolderOpen size={11} /> {task.projectName}</span>}
+                        <div className="tk-card-meta">
+                          {task.assignedTo && <span><User size={11} /> {task.assignedTo}</span>}
+                          {task.dueDate && <span><Calendar size={11} /> {task.dueDate}</span>}
+                          {task.projectName && <span><FolderOpen size={11} /> {task.projectName}</span>}
                         </div>
                       </div>
                     </div>

@@ -77,7 +77,7 @@ export default function Sidebar() {
         <div className="sidebar-profile">
           <div className="sidebar-avatar">{profile.name?.[0]?.toUpperCase()}</div>
           <div className="sidebar-profile-info">
-            <span className="sidebar-profile-name">{profile.name}</span>
+            <span className="sidebar-profile-name" title={profile.name}>{profile.name}</span>
             <span className="sidebar-profile-role">{profile.role}</span>
           </div>
         </div>

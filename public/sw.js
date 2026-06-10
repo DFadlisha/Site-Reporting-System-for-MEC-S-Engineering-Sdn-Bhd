@@ -1,10 +1,12 @@
 // public/sw.js
-const CACHE_NAME = 'sprs-pwa-cache-v3'; // Bumped to v3
+const CACHE_NAME = 'sprs-pwa-cache-v4'; // Bumped to v4
 const urlsToCache = [
   '/',
   '/index.html',
   '/manifest.json',
   '/favicon.ico',
+  '/logo192.png',
+  '/logo512.png',
 ];
 
 // Install a service worker
