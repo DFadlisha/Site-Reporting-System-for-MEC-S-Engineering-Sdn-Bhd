@@ -9,7 +9,9 @@ import Topbar from "../shared/Topbar";
 import {
   createReport, subscribeReports, updateReport,
   subscribeProjects, createNotification, subscribeTasks,
-  getSystemUsers, subscribeUserProjects
+  getSystemUsers, subscribeUserProjects,
+  subscribeCustomMaterials, subscribeCustomEquipment,
+  addCustomMaterialIfNew, addCustomEquipmentIfNew
 } from "../../firebase/services";
 import { useAuth } from "../../contexts/AuthContext";
 import toast from "react-hot-toast";
@@ -66,8 +68,20 @@ export default function ReportsPage() {
   const sigCanvas = useRef(null);
 
   // Equipment & Materials options and multi-select states
-  const EQUIPMENT_OPTIONS = ["Excavator", "Concrete Mixer", "Mobile Crane", "Scaffolding", "Generator", "Welding Machine", "Jackhammer", "Other"];
-  const MATERIALS_OPTIONS = ["Cement", "Steel Bars", "Bricks", "Sand", "Gravel", "Pipes", "Timber", "Paint", "Other"];
+  const [dbMaterials, setDbMaterials] = useState([]);
+  const [dbEquipment, setDbEquipment] = useState([]);
+
+  const materialsOptions = React.useMemo(() => {
+    const predefined = ["Cement", "Steel Bars", "Bricks", "Sand", "Gravel", "Pipes", "Timber", "Paint"];
+    const merged = [...new Set([...predefined, ...dbMaterials])];
+    return [...merged, "Other"];
+  }, [dbMaterials]);
+
+  const equipmentOptions = React.useMemo(() => {
+    const predefined = ["Excavator", "Concrete Mixer", "Mobile Crane", "Scaffolding", "Generator", "Welding Machine", "Jackhammer"];
+    const merged = [...new Set([...predefined, ...dbEquipment])];
+    return [...merged, "Other"];
+  }, [dbEquipment]);
 
   const [selectedEquipment, setSelectedEquipment] = useState([]);
   const [customEquipment, setCustomEquipment] = useState("");
@@ -78,7 +92,13 @@ export default function ReportsPage() {
     const u1 = subscribeReports(null, setReports);
     const u2 = subscribeUserProjects(user?.uid, role, setProjects);
     const u3 = subscribeTasks(null, setTasks);
-    return () => { u1(); u2(); u3(); };
+    const u4 = subscribeCustomMaterials((mats) => {
+      setDbMaterials(mats.map(m => m.name));
+    });
+    const u5 = subscribeCustomEquipment((eqs) => {
+      setDbEquipment(eqs.map(e => e.name));
+    });
+    return () => { u1(); u2(); u3(); u4(); u5(); };
   }, [user, role]);
 
   const getReportMonth = (dateStr) => {
@@ -135,14 +155,20 @@ export default function ReportsPage() {
     e.preventDefault();
     
     // Compile equipment and materials from chips
+    const customEqList = selectedEquipment.includes("Other") && customEquipment 
+      ? customEquipment.split(",").map(s => s.trim()).filter(Boolean) 
+      : [];
     const finalEquipment = [
       ...selectedEquipment.filter(eq => eq !== "Other"),
-      ...(selectedEquipment.includes("Other") && customEquipment ? customEquipment.split(",").map(s => s.trim()) : [])
+      ...customEqList
     ].filter(Boolean).join(", ");
 
+    const customMatList = selectedMaterials.includes("Other") && customMaterials 
+      ? customMaterials.split(",").map(s => s.trim()).filter(Boolean) 
+      : [];
     const finalMaterials = [
       ...selectedMaterials.filter(mat => mat !== "Other"),
-      ...(selectedMaterials.includes("Other") && customMaterials ? customMaterials.split(",").map(s => s.trim()) : [])
+      ...customMatList
     ].filter(Boolean).join(", ");
 
     // Validation
@@ -185,6 +211,16 @@ export default function ReportsPage() {
         },
         photoFiles
       );
+
+      // Auto-save new custom materials & tools to Firebase
+      try {
+        const matPromises = customMatList.map(mat => addCustomMaterialIfNew(mat));
+        const eqPromises = customEqList.map(eq => addCustomEquipmentIfNew(eq));
+        await Promise.all([...matPromises, ...eqPromises]);
+      } catch (saveErr) {
+        console.error("Error auto-saving materials/equipment:", saveErr);
+      }
+
       // Notify all consultants about new report submission
       try {
         const allUsers = await getSystemUsers();
@@ -659,13 +695,13 @@ export default function ReportsPage() {
                                    return str.split(",").map(s => s.trim()).filter(Boolean);
                                  };
                                  const eqList = parseCommaString(activeReport.equipment);
-                                 const predefinedEq = eqList.filter(e => EQUIPMENT_OPTIONS.includes(e));
+                                 const predefinedEq = eqList.filter(e => equipmentOptions.includes(e));
                                  const customEq = eqList.filter(e => !predefinedEq.includes(e)).join(", ");
                                  setSelectedEquipment(predefinedEq.length > 0 || customEq ? [...predefinedEq, ...(customEq ? ["Other"] : [])] : []);
                                  setCustomEquipment(customEq);
 
                                  const matList = parseCommaString(activeReport.materials);
-                                 const predefinedMat = matList.filter(m => MATERIALS_OPTIONS.includes(m));
+                                 const predefinedMat = matList.filter(m => materialsOptions.includes(m));
                                  const customMat = matList.filter(m => !predefinedMat.includes(m)).join(", ");
                                  setSelectedMaterials(predefinedMat.length > 0 || customMat ? [...predefinedMat, ...(customMat ? ["Other"] : [])] : []);
                                  setCustomMaterials(customMat);
@@ -808,7 +844,7 @@ export default function ReportsPage() {
                   <div>
                     <label style={{fontSize: '0.85rem', color: 'var(--text-primary)', marginBottom: 6, display: 'block', fontWeight: 600}}>Equipment Used</label>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
-                      {EQUIPMENT_OPTIONS.map(eq => {
+                      {equipmentOptions.map(eq => {
                         const isSelected = selectedEquipment.includes(eq);
                         return (
                           <button
@@ -852,7 +888,7 @@ export default function ReportsPage() {
                   <div>
                     <label style={{fontSize: '0.85rem', color: 'var(--text-primary)', marginBottom: 6, display: 'block', fontWeight: 600}}>Materials Used</label>
                     <div style={{ display: 'flex', flexWrap: 'wrap', gap: 6, marginBottom: 8 }}>
-                      {MATERIALS_OPTIONS.map(mat => {
+                      {materialsOptions.map(mat => {
                         const isSelected = selectedMaterials.includes(mat);
                         return (
                           <button

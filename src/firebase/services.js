@@ -418,4 +418,49 @@ export const subscribeAuditLogs = (callback) =>
     (snap) => callback(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
   );
 
+export const subscribeCustomMaterials = (callback) =>
+  onSnapshot(collection(db, "custom_materials"), (snap) =>
+    callback(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
+  );
+
+export const subscribeCustomEquipment = (callback) =>
+  onSnapshot(collection(db, "custom_equipment"), (snap) =>
+    callback(snap.docs.map((d) => ({ id: d.id, ...d.data() })))
+  );
+
+export const addCustomMaterialIfNew = async (name) => {
+  const normalized = name.trim();
+  if (!normalized) return;
+  const q = query(
+    collection(db, "custom_materials"),
+    where("nameLower", "==", normalized.toLowerCase())
+  );
+  const snap = await getDocs(q);
+  if (snap.empty) {
+    await addDoc(collection(db, "custom_materials"), {
+      name: normalized,
+      nameLower: normalized.toLowerCase(),
+      createdAt: serverTimestamp(),
+    });
+  }
+};
+
+export const addCustomEquipmentIfNew = async (name) => {
+  const normalized = name.trim();
+  if (!normalized) return;
+  const q = query(
+    collection(db, "custom_equipment"),
+    where("nameLower", "==", normalized.toLowerCase())
+  );
+  const snap = await getDocs(q);
+  if (snap.empty) {
+    await addDoc(collection(db, "custom_equipment"), {
+      name: normalized,
+      nameLower: normalized.toLowerCase(),
+      createdAt: serverTimestamp(),
+    });
+  }
+};
+
+
 
