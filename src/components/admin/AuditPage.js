@@ -623,17 +623,74 @@ export default function AuditPage() {
                   title="Export this section as Excel"
                   onClick={() => {
                     const wb = XLSX.utils.book_new();
-                    const data = [
-                      ["Project", "Location", "Expected End", "Progress (%)", "Days Overdue", "Severity"],
-                      ...delayedProjects.map(p => [
-                        p.name, p.location, p.endDate, p.progress ?? 0, p.daysOverdue,
-                        p.daysOverdue > 30 ? "High" : p.daysOverdue > 7 ? "Medium" : "Low",
-                      ]),
-                    ];
-                    const ws = XLSX.utils.aoa_to_sheet(data);
-                    ws["!cols"] = [{ wch: 28 }, { wch: 20 }, { wch: 14 }, { wch: 12 }, { wch: 12 }, { wch: 12 }];
+                    const ws = XLSX.utils.aoa_to_sheet([]);
+                    ws["!cols"] = [{ wch: 32 }, { wch: 22 }, { wch: 18 }, { wch: 14 }, { wch: 16 }, { wch: 14 }];
+                    ws["!rows"] = [{ hpt: 36 }, { hpt: 22 }, { hpt: 26 }];
+
+                    const setC = (addr, v, s) => { ws[addr] = { v, t: typeof v === "number" ? "n" : "s", s }; };
+                    const BLUE = "1F4E79"; const ACC = "FE6F6F"; const HDR = "2D6A9F";
+                    const W = "FFFFFF"; const ALT = "EEF4FB";
+                    const RED_BG = "FFE8E8"; const YEL_BG = "FFF8E1"; const GRN_BG = "E8F8EE";
+
+                    // Title
+                    setC("A1", "MEC-S ENGINEERING SDN BHD  —  DELAYED PROJECTS", {
+                      font: { bold: true, sz: 13, color: { rgb: W }, name: "Calibri" },
+                      fill: { fgColor: { rgb: BLUE } },
+                      alignment: { horizontal: "left", vertical: "center" },
+                    });
+                    setC("B1", "", { fill: { fgColor: { rgb: BLUE } } });
+                    setC("C1", "", { fill: { fgColor: { rgb: BLUE } } });
+                    setC("D1", "", { fill: { fgColor: { rgb: BLUE } } });
+                    setC("E1", `Exported: ${format(new Date(), "d MMMM yyyy")}`, {
+                      font: { bold: false, sz: 9, color: { rgb: "D0E4F7" }, name: "Calibri" },
+                      fill: { fgColor: { rgb: BLUE } },
+                      alignment: { horizontal: "right", vertical: "center" },
+                    });
+                    setC("F1", "", { fill: { fgColor: { rgb: BLUE } } });
+
+                    const heads = ["Project Name", "Location", "Expected End Date", "Progress (%)", "Days Overdue", "Severity"];
+                    heads.forEach((h, i) => {
+                      const addr = XLSX.utils.encode_cell({ r: 2, c: i });
+                      ws[addr] = { v: h, t: "s", s: {
+                        font: { bold: true, sz: 10, color: { rgb: W }, name: "Calibri" },
+                        fill: { fgColor: { rgb: HDR } },
+                        alignment: { horizontal: "center", vertical: "center", wrapText: true },
+                        border: { top: { style: "thin", color: { rgb: "BFBFBF" } }, bottom: { style: "thin", color: { rgb: "BFBFBF" } }, left: { style: "thin", color: { rgb: "BFBFBF" } }, right: { style: "thin", color: { rgb: "BFBFBF" } } },
+                      }};
+                    });
+
+                    if (!ws["!rows"]) ws["!rows"] = [];
+                    ws["!rows"][2] = { hpt: 24 };
+
+                    if (delayedProjects.length === 0) {
+                      const addr = XLSX.utils.encode_cell({ r: 3, c: 0 });
+                      ws[addr] = { v: "\u2713 No delayed projects at this time.", t: "s", s: { font: { bold: false, sz: 10, color: { rgb: "059669" }, name: "Calibri" }, fill: { fgColor: { rgb: GRN_BG } }, alignment: { horizontal: "left", vertical: "center" } } };
+                    } else {
+                      delayedProjects.forEach((p, rIdx) => {
+                        const isAlt = rIdx % 2 === 1;
+                        const bg = isAlt ? ALT : W;
+                        const sev = p.daysOverdue > 30 ? "High" : p.daysOverdue > 7 ? "Medium" : "Low";
+                        const sevBg = sev === "High" ? RED_BG : sev === "Medium" ? YEL_BG : GRN_BG;
+                        const sevColor = sev === "High" ? "EF4444" : sev === "Medium" ? "D97706" : "059669";
+                        const row = [p.name, p.location || "—", p.endDate, p.progress ?? 0, p.daysOverdue, sev];
+                        row.forEach((cell, cIdx) => {
+                          const addr = XLSX.utils.encode_cell({ r: 3 + rIdx, c: cIdx });
+                          const isSev = cIdx === 5;
+                          ws[addr] = { v: cell ?? "", t: typeof cell === "number" ? "n" : "s", s: {
+                            font: { bold: isSev, sz: 10, color: { rgb: isSev ? sevColor : "1F2937" }, name: "Calibri" },
+                            fill: { fgColor: { rgb: isSev ? sevBg : bg } },
+                            alignment: { horizontal: cIdx >= 3 ? "center" : "left", vertical: "center" },
+                            border: { top: { style: "hair", color: { rgb: "E5E7EB" } }, bottom: { style: "hair", color: { rgb: "E5E7EB" } }, left: { style: "hair", color: { rgb: "E5E7EB" } }, right: { style: "hair", color: { rgb: "E5E7EB" } } },
+                          }};
+                          if (!ws["!rows"][3 + rIdx]) ws["!rows"][3 + rIdx] = { hpt: 20 };
+                        });
+                      });
+                    }
+
+                    ws["!merges"] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 3 } }];
+                    ws["!ref"] = `A1:F${Math.max(5, 4 + delayedProjects.length)}`;
                     XLSX.utils.book_append_sheet(wb, ws, "Delayed Projects");
-                    XLSX.writeFile(wb, "delayed_projects.xlsx");
+                    XLSX.writeFile(wb, `SPRS_Delayed_Projects_${format(new Date(), "yyyy-MM-dd")}.xlsx`);
                   }}
                 >
                   <Download size={14} /> Export
@@ -687,18 +744,68 @@ export default function AuditPage() {
                   title="Export this section as Excel"
                   onClick={() => {
                     const wb = XLSX.utils.book_new();
-                    const data = [
-                      ["Supervisor", "Total Reports", "This Month", "Last Submission", "Activity Status"],
-                      ...submissionStats.map(s => [
-                        s.name, s.total, s.thisMonth,
-                        s.lastDate ? format(s.lastDate, "d MMM yyyy") : "Never",
-                        s.thisMonth === 0 ? "Inactive" : s.thisMonth >= 3 ? "Active" : "Low",
-                      ]),
-                    ];
-                    const ws = XLSX.utils.aoa_to_sheet(data);
-                    ws["!cols"] = [{ wch: 28 }, { wch: 14 }, { wch: 12 }, { wch: 20 }, { wch: 16 }];
+                    const ws = XLSX.utils.aoa_to_sheet([]);
+                    ws["!cols"] = [{ wch: 32 }, { wch: 16 }, { wch: 16 }, { wch: 22 }, { wch: 18 }];
+                    if (!ws["!rows"]) ws["!rows"] = [];
+
+                    const setC = (addr, v, s) => { ws[addr] = { v, t: typeof v === "number" ? "n" : "s", s }; };
+                    const BLUE = "1F4E79"; const HDR = "2D6A9F";
+                    const W = "FFFFFF"; const ALT = "EEF4FB";
+                    const RED_BG = "FFE8E8"; const YEL_BG = "FFF8E1"; const GRN_BG = "E8F8EE";
+
+                    setC("A1", "MEC-S ENGINEERING SDN BHD  —  REPORT SUBMISSION BY SUPERVISOR", {
+                      font: { bold: true, sz: 13, color: { rgb: W }, name: "Calibri" },
+                      fill: { fgColor: { rgb: BLUE } },
+                      alignment: { horizontal: "left", vertical: "center" },
+                    });
+                    ["B1","C1","D1"].forEach(a => setC(a, "", { fill: { fgColor: { rgb: BLUE } } }));
+                    setC("E1", `Exported: ${format(new Date(), "d MMMM yyyy")}`, {
+                      font: { bold: false, sz: 9, color: { rgb: "D0E4F7" }, name: "Calibri" },
+                      fill: { fgColor: { rgb: BLUE } },
+                      alignment: { horizontal: "right", vertical: "center" },
+                    });
+                    ws["!rows"][0] = { hpt: 30 };
+
+                    const heads = ["Supervisor Name", "Total Reports", "This Month", "Last Submission Date", "Activity Status"];
+                    heads.forEach((h, i) => {
+                      const addr = XLSX.utils.encode_cell({ r: 2, c: i });
+                      ws[addr] = { v: h, t: "s", s: {
+                        font: { bold: true, sz: 10, color: { rgb: W }, name: "Calibri" },
+                        fill: { fgColor: { rgb: HDR } },
+                        alignment: { horizontal: "center", vertical: "center", wrapText: true },
+                        border: { top: { style: "thin", color: { rgb: "BFBFBF" } }, bottom: { style: "thin", color: { rgb: "BFBFBF" } }, left: { style: "thin", color: { rgb: "BFBFBF" } }, right: { style: "thin", color: { rgb: "BFBFBF" } } },
+                      }};
+                    });
+                    ws["!rows"][2] = { hpt: 24 };
+
+                    if (submissionStats.length === 0) {
+                      setC("A4", "No reports submitted yet.", { font: { sz: 10, color: { rgb: "D97706" }, name: "Calibri" }, fill: { fgColor: { rgb: YEL_BG } }, alignment: { horizontal: "left", vertical: "center" } });
+                    } else {
+                      submissionStats.forEach((s, rIdx) => {
+                        const isAlt = rIdx % 2 === 1;
+                        const bg = isAlt ? ALT : W;
+                        const activity = s.thisMonth === 0 ? "Inactive" : s.thisMonth >= 3 ? "Active" : "Low";
+                        const actColor = s.thisMonth === 0 ? "EF4444" : s.thisMonth >= 3 ? "059669" : "D97706";
+                        const actBg    = s.thisMonth === 0 ? RED_BG   : s.thisMonth >= 3 ? GRN_BG  : YEL_BG;
+                        const row = [s.name, s.total, s.thisMonth, s.lastDate ? format(s.lastDate, "d MMM yyyy") : "Never", activity];
+                        row.forEach((cell, cIdx) => {
+                          const addr = XLSX.utils.encode_cell({ r: 3 + rIdx, c: cIdx });
+                          const isBadge = cIdx === 4;
+                          ws[addr] = { v: cell ?? "", t: typeof cell === "number" ? "n" : "s", s: {
+                            font: { bold: isBadge, sz: 10, color: { rgb: isBadge ? actColor : "1F2937" }, name: "Calibri" },
+                            fill: { fgColor: { rgb: isBadge ? actBg : bg } },
+                            alignment: { horizontal: cIdx >= 1 ? "center" : "left", vertical: "center" },
+                            border: { top: { style: "hair", color: { rgb: "E5E7EB" } }, bottom: { style: "hair", color: { rgb: "E5E7EB" } }, left: { style: "hair", color: { rgb: "E5E7EB" } }, right: { style: "hair", color: { rgb: "E5E7EB" } } },
+                          }};
+                          if (!ws["!rows"][3 + rIdx]) ws["!rows"][3 + rIdx] = { hpt: 20 };
+                        });
+                      });
+                    }
+
+                    ws["!merges"] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 3 } }];
+                    ws["!ref"] = `A1:E${Math.max(5, 4 + submissionStats.length)}`;
                     XLSX.utils.book_append_sheet(wb, ws, "Report Submissions");
-                    XLSX.writeFile(wb, "report_submissions.xlsx");
+                    XLSX.writeFile(wb, `SPRS_Report_Submissions_${format(new Date(), "yyyy-MM-dd")}.xlsx`);
                   }}
                 >
                   <Download size={14} /> Export
@@ -748,21 +855,69 @@ export default function AuditPage() {
                   title="Export this section as Excel"
                   onClick={() => {
                     const wb = XLSX.utils.book_new();
-                    const data = [
-                      ["Consultant", "Reports Reviewed", "Avg Days to Approve", "Performance Rating"],
-                      ...approvalStats.map(c => {
+                    const ws = XLSX.utils.aoa_to_sheet([]);
+                    ws["!cols"] = [{ wch: 32 }, { wch: 20 }, { wch: 24 }, { wch: 20 }];
+                    if (!ws["!rows"]) ws["!rows"] = [];
+
+                    const setC = (addr, v, s) => { ws[addr] = { v, t: typeof v === "number" ? "n" : "s", s }; };
+                    const BLUE = "1F4E79"; const HDR = "2D6A9F";
+                    const W = "FFFFFF"; const ALT = "EEF4FB";
+                    const RED_BG = "FFE8E8"; const YEL_BG = "FFF8E1"; const GRN_BG = "E8F8EE";
+
+                    setC("A1", "MEC-S ENGINEERING SDN BHD  —  CONSULTANT APPROVAL TURNAROUND", {
+                      font: { bold: true, sz: 13, color: { rgb: W }, name: "Calibri" },
+                      fill: { fgColor: { rgb: BLUE } },
+                      alignment: { horizontal: "left", vertical: "center" },
+                    });
+                    ["B1","C1"].forEach(a => setC(a, "", { fill: { fgColor: { rgb: BLUE } } }));
+                    setC("D1", `Exported: ${format(new Date(), "d MMMM yyyy")}`, {
+                      font: { bold: false, sz: 9, color: { rgb: "D0E4F7" }, name: "Calibri" },
+                      fill: { fgColor: { rgb: BLUE } },
+                      alignment: { horizontal: "right", vertical: "center" },
+                    });
+                    ws["!rows"][0] = { hpt: 30 };
+
+                    const heads = ["Consultant Name", "Reports Reviewed", "Avg Days to Approve", "Performance Rating"];
+                    heads.forEach((h, i) => {
+                      const addr = XLSX.utils.encode_cell({ r: 2, c: i });
+                      ws[addr] = { v: h, t: "s", s: {
+                        font: { bold: true, sz: 10, color: { rgb: W }, name: "Calibri" },
+                        fill: { fgColor: { rgb: HDR } },
+                        alignment: { horizontal: "center", vertical: "center", wrapText: true },
+                        border: { top: { style: "thin", color: { rgb: "BFBFBF" } }, bottom: { style: "thin", color: { rgb: "BFBFBF" } }, left: { style: "thin", color: { rgb: "BFBFBF" } }, right: { style: "thin", color: { rgb: "BFBFBF" } } },
+                      }};
+                    });
+                    ws["!rows"][2] = { hpt: 24 };
+
+                    if (approvalStats.length === 0) {
+                      setC("A4", "No approved reports yet.", { font: { sz: 10, color: { rgb: "6B7280" }, name: "Calibri" }, fill: { fgColor: { rgb: ALT } }, alignment: { horizontal: "left", vertical: "center" } });
+                    } else {
+                      approvalStats.forEach((c, rIdx) => {
+                        const isAlt = rIdx % 2 === 1;
+                        const bg = isAlt ? ALT : W;
                         const days = parseFloat(c.avgDays);
-                        return [
-                          c.name, c.count,
-                          c.avgDays ? `${c.avgDays} days` : "—",
-                          days <= 1 ? "Excellent" : days <= 3 ? "Good" : days <= 7 ? "Average" : "Slow",
-                        ];
-                      }),
-                    ];
-                    const ws = XLSX.utils.aoa_to_sheet(data);
-                    ws["!cols"] = [{ wch: 28 }, { wch: 16 }, { wch: 20 }, { wch: 18 }];
+                        const rating = days <= 1 ? "Excellent" : days <= 3 ? "Good" : days <= 7 ? "Average" : "Slow";
+                        const rColor = days <= 1 ? "059669" : days <= 3 ? "2563EB" : days <= 7 ? "D97706" : "EF4444";
+                        const rBg    = days <= 1 ? GRN_BG  : days <= 3 ? "EFF6FF"  : days <= 7 ? YEL_BG : RED_BG;
+                        const row = [c.name, c.count, c.avgDays ? `${c.avgDays} days` : "—", rating];
+                        row.forEach((cell, cIdx) => {
+                          const addr = XLSX.utils.encode_cell({ r: 3 + rIdx, c: cIdx });
+                          const isBadge = cIdx === 3;
+                          ws[addr] = { v: cell ?? "", t: typeof cell === "number" ? "n" : "s", s: {
+                            font: { bold: isBadge, sz: 10, color: { rgb: isBadge ? rColor : "1F2937" }, name: "Calibri" },
+                            fill: { fgColor: { rgb: isBadge ? rBg : bg } },
+                            alignment: { horizontal: cIdx >= 1 ? "center" : "left", vertical: "center" },
+                            border: { top: { style: "hair", color: { rgb: "E5E7EB" } }, bottom: { style: "hair", color: { rgb: "E5E7EB" } }, left: { style: "hair", color: { rgb: "E5E7EB" } }, right: { style: "hair", color: { rgb: "E5E7EB" } } },
+                          }};
+                          if (!ws["!rows"][3 + rIdx]) ws["!rows"][3 + rIdx] = { hpt: 20 };
+                        });
+                      });
+                    }
+
+                    ws["!merges"] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 2 } }];
+                    ws["!ref"] = `A1:D${Math.max(5, 4 + approvalStats.length)}`;
                     XLSX.utils.book_append_sheet(wb, ws, "Approval Turnaround");
-                    XLSX.writeFile(wb, "approval_turnaround.xlsx");
+                    XLSX.writeFile(wb, `SPRS_Approval_Turnaround_${format(new Date(), "yyyy-MM-dd")}.xlsx`);
                   }}
                 >
                   <Download size={14} /> Export
@@ -812,20 +967,70 @@ export default function AuditPage() {
                   title="Export this section as Excel"
                   onClick={() => {
                     const wb = XLSX.utils.book_new();
-                    const data = [
-                      ["Project", "Total Issues", "Open", "Resolved", "Open Rate (%)", "Health Status"],
-                      ...issuesByProject.map(p => {
+                    const ws = XLSX.utils.aoa_to_sheet([]);
+                    ws["!cols"] = [{ wch: 32 }, { wch: 14 }, { wch: 12 }, { wch: 12 }, { wch: 16 }, { wch: 18 }];
+                    if (!ws["!rows"]) ws["!rows"] = [];
+
+                    const setC = (addr, v, s) => { ws[addr] = { v, t: typeof v === "number" ? "n" : "s", s }; };
+                    const BLUE = "1F4E79"; const HDR = "2D6A9F";
+                    const W = "FFFFFF"; const ALT = "EEF4FB";
+                    const RED_BG = "FFE8E8"; const YEL_BG = "FFF8E1"; const GRN_BG = "E8F8EE";
+
+                    setC("A1", "MEC-S ENGINEERING SDN BHD  —  ISSUES BY PROJECT", {
+                      font: { bold: true, sz: 13, color: { rgb: W }, name: "Calibri" },
+                      fill: { fgColor: { rgb: BLUE } },
+                      alignment: { horizontal: "left", vertical: "center" },
+                    });
+                    ["B1","C1","D1","E1"].forEach(a => setC(a, "", { fill: { fgColor: { rgb: BLUE } } }));
+                    setC("F1", `Exported: ${format(new Date(), "d MMMM yyyy")}`, {
+                      font: { bold: false, sz: 9, color: { rgb: "D0E4F7" }, name: "Calibri" },
+                      fill: { fgColor: { rgb: BLUE } },
+                      alignment: { horizontal: "right", vertical: "center" },
+                    });
+                    ws["!rows"][0] = { hpt: 30 };
+
+                    const heads = ["Project Name", "Total Issues", "Open", "Resolved", "Open Rate (%)", "Health Status"];
+                    heads.forEach((h, i) => {
+                      const addr = XLSX.utils.encode_cell({ r: 2, c: i });
+                      ws[addr] = { v: h, t: "s", s: {
+                        font: { bold: true, sz: 10, color: { rgb: W }, name: "Calibri" },
+                        fill: { fgColor: { rgb: HDR } },
+                        alignment: { horizontal: "center", vertical: "center", wrapText: true },
+                        border: { top: { style: "thin", color: { rgb: "BFBFBF" } }, bottom: { style: "thin", color: { rgb: "BFBFBF" } }, left: { style: "thin", color: { rgb: "BFBFBF" } }, right: { style: "thin", color: { rgb: "BFBFBF" } } },
+                      }};
+                    });
+                    ws["!rows"][2] = { hpt: 24 };
+
+                    if (issuesByProject.length === 0) {
+                      setC("A4", "\u2713 No issues recorded.", { font: { sz: 10, color: { rgb: "059669" }, name: "Calibri" }, fill: { fgColor: { rgb: GRN_BG } }, alignment: { horizontal: "left", vertical: "center" } });
+                    } else {
+                      issuesByProject.forEach((p, rIdx) => {
+                        const isAlt = rIdx % 2 === 1;
+                        const bg = isAlt ? ALT : W;
                         const openRate = p.total > 0 ? Math.round((p.open / p.total) * 100) : 0;
-                        return [
-                          p.name, p.total, p.open, p.resolved, openRate,
-                          openRate > 50 ? "Critical" : openRate > 20 ? "At Risk" : "Healthy",
-                        ];
-                      }),
-                    ];
-                    const ws = XLSX.utils.aoa_to_sheet(data);
-                    ws["!cols"] = [{ wch: 28 }, { wch: 12 }, { wch: 10 }, { wch: 10 }, { wch: 14 }, { wch: 14 }];
+                        const health = openRate > 50 ? "Critical" : openRate > 20 ? "At Risk" : "Healthy";
+                        const hColor = openRate > 50 ? "EF4444" : openRate > 20 ? "D97706" : "059669";
+                        const hBg    = openRate > 50 ? RED_BG  : openRate > 20 ? YEL_BG : GRN_BG;
+                        const row = [p.name, p.total, p.open, p.resolved, openRate, health];
+                        row.forEach((cell, cIdx) => {
+                          const addr = XLSX.utils.encode_cell({ r: 3 + rIdx, c: cIdx });
+                          const isBadge = cIdx === 5;
+                          const isOpen  = cIdx === 2 && p.open > 0;
+                          ws[addr] = { v: cell ?? "", t: typeof cell === "number" ? "n" : "s", s: {
+                            font: { bold: isBadge, sz: 10, color: { rgb: isBadge ? hColor : isOpen ? "EF4444" : "1F2937" }, name: "Calibri" },
+                            fill: { fgColor: { rgb: isBadge ? hBg : isOpen ? RED_BG : bg } },
+                            alignment: { horizontal: cIdx >= 1 ? "center" : "left", vertical: "center" },
+                            border: { top: { style: "hair", color: { rgb: "E5E7EB" } }, bottom: { style: "hair", color: { rgb: "E5E7EB" } }, left: { style: "hair", color: { rgb: "E5E7EB" } }, right: { style: "hair", color: { rgb: "E5E7EB" } } },
+                          }};
+                          if (!ws["!rows"][3 + rIdx]) ws["!rows"][3 + rIdx] = { hpt: 20 };
+                        });
+                      });
+                    }
+
+                    ws["!merges"] = [{ s: { r: 0, c: 0 }, e: { r: 0, c: 4 } }];
+                    ws["!ref"] = `A1:F${Math.max(5, 4 + issuesByProject.length)}`;
                     XLSX.utils.book_append_sheet(wb, ws, "Issues by Project");
-                    XLSX.writeFile(wb, "issues_by_project.xlsx");
+                    XLSX.writeFile(wb, `SPRS_Issues_By_Project_${format(new Date(), "yyyy-MM-dd")}.xlsx`);
                   }}
                 >
                   <Download size={14} /> Export

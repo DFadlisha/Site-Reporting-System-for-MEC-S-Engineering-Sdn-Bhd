@@ -2,8 +2,10 @@
 import React, { useEffect, useState, useRef } from "react";
 import {
   Plus, X, Loader2, FileText, Camera, CheckCircle,
-  XCircle, Clock, MapPin, ChevronDown, ChevronUp, MessageSquare,
+  XCircle, Clock, MapPin, ChevronDown, ChevronUp, MessageSquare, Download,
 } from "lucide-react";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 import { useLocation } from "react-router-dom";
 import Topbar from "../shared/Topbar";
 import {
@@ -352,6 +354,396 @@ export default function ReportsPage() {
     a.href = url;
     a.download = "reports_export.csv";
     a.click();
+  };
+
+  // ── Professional PDF Export ────────────────────────────────────────
+  const handleExportProjectPDF = (project) => {
+    const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+    const pageW = doc.internal.pageSize.getWidth();
+    const pageH = doc.internal.pageSize.getHeight();
+    const margin = 15;
+    const contentW = pageW - margin * 2;
+    const exportDate = new Date().toLocaleDateString("en-MY", { day: "2-digit", month: "long", year: "numeric" });
+    const projTasks   = tasks.filter(t => t.projectId === project.id);
+    const projReports = reports.filter(r => r.projectId === project.id);
+
+    // ── Colour palette ──
+    const CORAL   = [245, 106, 106];
+    const DARK    = [17,  24,  39];
+    const GREY    = [107, 114, 128];
+    const LIGHTBG = [248, 249, 250];
+    const WHITE   = [255, 255, 255];
+    const GREENB  = [209, 250, 229];
+    const GREENT  = [6,   95,  70];
+    const BLUEB   = [219, 234, 254];
+    const BLUET   = [30,  64,  175];
+    const YELLOWB = [254, 243, 199];
+    const YELLOWT = [146, 64,  14];
+
+    // Helper: draw footer on every page
+    const drawFooter = (pageNum, totalPages) => {
+      doc.setFontSize(8);
+      doc.setTextColor(...GREY);
+      doc.setFont("helvetica", "normal");
+      doc.text("SPRS — Site Progress Reporting System  |  MEC's Engineering Sdn. Bhd.  |  CONFIDENTIAL", margin, pageH - 8);
+      doc.text(`Page ${pageNum} of ${totalPages}`, pageW - margin, pageH - 8, { align: "right" });
+      doc.setDrawColor(...CORAL);
+      doc.setLineWidth(0.4);
+      doc.line(margin, pageH - 12, pageW - margin, pageH - 12);
+    };
+
+    // ── PAGE 1: Cover / Header ──────────────────────────────────────
+    // Top coral header bar
+    doc.setFillColor(...CORAL);
+    doc.rect(0, 0, pageW, 38, "F");
+
+    // Company name
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(9);
+    doc.setTextColor(...WHITE);
+    doc.text("MEC'S ENGINEERING SDN. BHD.", margin, 12);
+
+    // Report type label
+    doc.setFontSize(14);
+    doc.text("PROJECT MASTER REPORT", margin, 23);
+
+    // Exported date (right side)
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(8);
+    doc.text(`Exported: ${exportDate}`, pageW - margin, 12, { align: "right" });
+    doc.text(`Prepared by SPRS`, pageW - margin, 19, { align: "right" });
+
+    // Project name below header
+    doc.setFillColor(...DARK);
+    doc.rect(0, 38, pageW, 18, "F");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(13);
+    doc.setTextColor(...WHITE);
+    doc.text(project.name, margin, 50);
+
+    // ── Project Info Box ──
+    let y = 66;
+    doc.setFillColor(...LIGHTBG);
+    doc.roundedRect(margin, y, contentW, 32, 3, 3, "F");
+    doc.setDrawColor(220, 220, 220);
+    doc.setLineWidth(0.3);
+    doc.roundedRect(margin, y, contentW, 32, 3, 3, "S");
+
+    const infoItems = [
+      ["Location",  project.location  || "N/A"],
+      ["Status",    project.status    || "Active"],
+      ["Priority",  project.priority  || "Medium"],
+      ["Progress",  `${project.progress || 0}%`],
+      ["Start Date", project.startDate || "N/A"],
+      ["End Date",   project.endDate   || "N/A"],
+    ];
+    const colW = contentW / 3;
+    infoItems.forEach(([label, value], i) => {
+      const col = i % 3;
+      const row = Math.floor(i / 3);
+      const ix = margin + col * colW + 6;
+      const iy = y + 10 + row * 14;
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(7.5);
+      doc.setTextColor(...GREY);
+      doc.text(label.toUpperCase(), ix, iy);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9.5);
+      doc.setTextColor(...DARK);
+      doc.text(String(value), ix, iy + 6);
+    });
+
+    // ── Summary chips ──
+    y = 105;
+    const chips = [
+      { label: "Total Tasks",   value: projTasks.length,   bg: BLUEB,   text: BLUET },
+      { label: "Daily Reports", value: projReports.length, bg: GREENB,  text: GREENT },
+      { label: "Approved",      value: projReports.filter(r => r.status === "approved").length, bg: GREENB, text: GREENT },
+      { label: "Pending",       value: projReports.filter(r => r.status === "pending").length,  bg: YELLOWB, text: YELLOWT },
+    ];
+    const chipW = (contentW - 12) / chips.length;
+    chips.forEach(({ label, value, bg, text }, i) => {
+      const cx = margin + i * (chipW + 4);
+      doc.setFillColor(...bg);
+      doc.roundedRect(cx, y, chipW, 20, 3, 3, "F");
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(16);
+      doc.setTextColor(...text);
+      doc.text(String(value), cx + chipW / 2, y + 13, { align: "center" });
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(7);
+      doc.setTextColor(...text);
+      doc.text(label, cx + chipW / 2, y + 19, { align: "center" });
+    });
+
+    // ── Section 1: Task Assignments ──────────────────────────────────
+    y = 133;
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.setTextColor(...DARK);
+    doc.text("SECTION 1 — TASK ASSIGNMENTS & SITE IN-CHARGE", margin, y);
+    doc.setDrawColor(...CORAL);
+    doc.setLineWidth(0.5);
+    doc.line(margin, y + 2, pageW - margin, y + 2);
+    y += 6;
+
+    const taskStatusLabel = (s) =>
+      s === "inprogress" ? "In Progress" : s === "todo" ? "To Do" : s === "done" ? "Done" : s || "—";
+    const taskStatusColor = (s) =>
+      s === "done" ? [6, 95, 70] : s === "inprogress" ? [30, 64, 175] : [107, 114, 128];
+    const taskStatusBg = (s) =>
+      s === "done" ? [209, 250, 229] : s === "inprogress" ? [219, 234, 254] : [243, 244, 246];
+
+    autoTable(doc, {
+      startY: y,
+      margin: { left: margin, right: margin },
+      head: [["#", "Task Title", "Site In-Charge (Supervisor)", "Site / Area", "Due Date", "Priority", "Status"]],
+      body: projTasks.length > 0
+        ? projTasks.map((t, i) => [
+            i + 1,
+            t.title || "—",
+            t.assignedTo || "—",
+            t.site || "—",
+            t.dueDate || "—",
+            t.priority ? t.priority.charAt(0).toUpperCase() + t.priority.slice(1) : "Medium",
+            taskStatusLabel(t.status),
+          ])
+        : [["", "No tasks assigned to this project.", "", "", "", "", ""]],
+      headStyles: {
+        fillColor: [31, 78, 121],
+        textColor: WHITE,
+        fontStyle: "bold",
+        fontSize: 8,
+        cellPadding: 4,
+      },
+      bodyStyles: { fontSize: 8.5, cellPadding: 4 },
+      alternateRowStyles: { fillColor: [242, 248, 255] },
+      columnStyles: {
+        0: { halign: "center", cellWidth: 8 },
+        1: { cellWidth: 48, fontStyle: "bold" },
+        2: { cellWidth: 38 },
+        3: { cellWidth: 28 },
+        4: { cellWidth: 24, halign: "center" },
+        5: { cellWidth: 22, halign: "center" },
+        6: { cellWidth: 26, halign: "center" },
+      },
+      didParseCell: (data) => {
+        if (data.section === "body" && data.column.index === 6 && projTasks[data.row.index]) {
+          const status = projTasks[data.row.index]?.status;
+          data.cell.styles.fillColor = taskStatusBg(status);
+          data.cell.styles.textColor = taskStatusColor(status);
+          data.cell.styles.fontStyle = "bold";
+        }
+        if (data.section === "body" && data.column.index === 5 && projTasks[data.row.index]) {
+          const p = (projTasks[data.row.index]?.priority || "medium").toLowerCase();
+          data.cell.styles.textColor = p === "high" ? [185, 28, 28] : p === "low" ? [21, 128, 61] : [30, 64, 175];
+          data.cell.styles.fontStyle = "bold";
+        }
+      },
+      didDrawPage: (data) => {
+        // footer will be applied at end
+      },
+    });
+
+    // ── Section 2: Daily Reports ──────────────────────────────────────
+    let finalY = (doc.lastAutoTable?.finalY || y) + 10;
+
+    // Check if need new page
+    if (finalY > pageH - 50) {
+      doc.addPage();
+      finalY = margin + 10;
+    }
+
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.setTextColor(...DARK);
+    doc.text("SECTION 2 — DAILY PROGRESS REPORTS & EVIDENCE", margin, finalY);
+    doc.setDrawColor(...CORAL);
+    doc.setLineWidth(0.5);
+    doc.line(margin, finalY + 2, pageW - margin, finalY + 2);
+    finalY += 8;
+
+    if (projReports.length === 0) {
+      doc.setFont("helvetica", "italic");
+      doc.setFontSize(9);
+      doc.setTextColor(...GREY);
+      doc.text("No daily reports filed for this project.", margin, finalY);
+    } else {
+      autoTable(doc, {
+        startY: finalY,
+        margin: { left: margin, right: margin },
+        head: [["#", "Report Title", "Date", "Submitted By", "Weather", "Workforce", "Status"]],
+        body: projReports.map((r, i) => [
+          i + 1,
+          r.title || "—",
+          r.date || "—",
+          r.submittedBy || "—",
+          r.weather || "—",
+          r.workforce ? `${r.workforce} pax` : "—",
+          r.status ? r.status.charAt(0).toUpperCase() + r.status.slice(1) : "—",
+        ]),
+        headStyles: {
+          fillColor: [31, 78, 121],
+          textColor: WHITE,
+          fontStyle: "bold",
+          fontSize: 8,
+          cellPadding: 4,
+        },
+        bodyStyles: { fontSize: 8.5, cellPadding: 4 },
+        alternateRowStyles: { fillColor: [248, 250, 252] },
+        columnStyles: {
+          0: { halign: "center", cellWidth: 8 },
+          1: { cellWidth: 48, fontStyle: "bold" },
+          2: { cellWidth: 24, halign: "center" },
+          3: { cellWidth: 36 },
+          4: { cellWidth: 22, halign: "center" },
+          5: { cellWidth: 22, halign: "center" },
+          6: { cellWidth: 24, halign: "center" },
+        },
+        didParseCell: (data) => {
+          if (data.section === "body" && data.column.index === 6 && projReports[data.row.index]) {
+            const s = projReports[data.row.index]?.status;
+            data.cell.styles.fillColor  = s === "approved" ? GREENB  : s === "rejected" ? [254, 226, 226] : YELLOWB;
+            data.cell.styles.textColor  = s === "approved" ? GREENT  : s === "rejected" ? [153, 27, 27]  : YELLOWT;
+            data.cell.styles.fontStyle  = "bold";
+          }
+        },
+      });
+
+      // Detailed report entries — one block per report
+      projReports.forEach((r, idx) => {
+        let y2 = (doc.lastAutoTable?.finalY || finalY) + (idx === 0 ? 8 : 4);
+
+        // Check space
+        if (y2 > pageH - 55) {
+          doc.addPage();
+          y2 = margin + 6;
+        }
+
+        // Report header bar
+        doc.setFillColor(...DARK);
+        doc.rect(margin, y2, contentW, 9, "F");
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(8.5);
+        doc.setTextColor(...WHITE);
+        doc.text(`Report #${idx + 1}: ${r.title || "Untitled"}  |  Submitted by: ${r.submittedBy || "—"}`, margin + 3, y2 + 6);
+        // Status badge (right)
+        const statusText = (r.status || "pending").toUpperCase();
+        const statusBgClr = r.status === "approved" ? GREENB : r.status === "rejected" ? [254, 226, 226] : YELLOWB;
+        const statusTxtClr = r.status === "approved" ? GREENT : r.status === "rejected" ? [153, 27, 27] : YELLOWT;
+        const statusW = 24;
+        doc.setFillColor(...statusBgClr);
+        doc.rect(pageW - margin - statusW, y2 + 1, statusW, 7, "F");
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(6.5);
+        doc.setTextColor(...statusTxtClr);
+        doc.text(statusText, pageW - margin - statusW / 2, y2 + 6, { align: "center" });
+
+        y2 += 11;
+
+        // Meta row
+        doc.setFillColor(248, 249, 250);
+        doc.rect(margin, y2, contentW, 8, "F");
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(7.5);
+        doc.setTextColor(...GREY);
+        const metaParts = [
+          `Date: ${r.date || "—"}`,
+          `Weather: ${r.weather || "—"}`,
+          `Workforce: ${r.workforce ? r.workforce + " pax" : "—"}`,
+          r.equipment ? `Equipment: ${r.equipment}` : null,
+          r.materials ? `Materials: ${r.materials}` : null,
+          r.gpsLat && r.gpsLng ? `GPS: ${r.gpsLat}, ${r.gpsLng}` : null,
+        ].filter(Boolean);
+        doc.text(metaParts.join("   |   "), margin + 3, y2 + 5.5);
+        y2 += 10;
+
+        // Description
+        if (r.description) {
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(8);
+          doc.setTextColor(...DARK);
+          doc.text("Progress Description:", margin + 2, y2 + 4);
+          doc.setDrawColor(...CORAL);
+          doc.setLineWidth(0.8);
+          doc.line(margin, y2 + 1, margin, y2 + 4 + 14);
+          const lines = doc.splitTextToSize(r.description, contentW - 14);
+          const blockH = Math.min(lines.length * 4.5 + 8, 40);
+          doc.setFillColor(255, 250, 250);
+          doc.rect(margin + 2, y2, contentW - 2, blockH, "F");
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(8);
+          doc.setTextColor(60, 60, 60);
+          doc.text(lines.slice(0, 8), margin + 5, y2 + 8);
+          y2 += blockH + 3;
+          // guard page break
+          if (y2 > pageH - 40) { doc.addPage(); y2 = margin + 6; }
+        }
+
+        // Issues
+        if (r.issues) {
+          const issueLines = doc.splitTextToSize(`Issues/Problems: ${r.issues}`, contentW - 10);
+          const issueH = Math.min(issueLines.length * 4.5 + 6, 28);
+          doc.setFillColor(255, 248, 240);
+          doc.rect(margin, y2, contentW, issueH, "F");
+          doc.setDrawColor(245, 158, 11);
+          doc.setLineWidth(0.8);
+          doc.line(margin, y2, margin, y2 + issueH);
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(7.5);
+          doc.setTextColor(100, 60, 10);
+          doc.text(issueLines.slice(0, 5), margin + 3, y2 + 5);
+          y2 += issueH + 3;
+          if (y2 > pageH - 40) { doc.addPage(); y2 = margin + 6; }
+        }
+
+        // Consultant feedback
+        if (r.reviewComment) {
+          const fbLines = doc.splitTextToSize(`Consultant Feedback: ${r.reviewComment}${r.reviewedBy ? ` — ${r.reviewedBy}` : ""}`, contentW - 10);
+          const fbH = Math.min(fbLines.length * 4.5 + 6, 24);
+          doc.setFillColor(240, 247, 255);
+          doc.rect(margin, y2, contentW, fbH, "F");
+          doc.setDrawColor(59, 130, 246);
+          doc.setLineWidth(0.8);
+          doc.line(margin, y2, margin, y2 + fbH);
+          doc.setFont("helvetica", "normal");
+          doc.setFontSize(7.5);
+          doc.setTextColor(30, 64, 175);
+          doc.text(fbLines.slice(0, 4), margin + 3, y2 + 5);
+          y2 += fbH + 3;
+          if (y2 > pageH - 30) { doc.addPage(); y2 = margin + 6; }
+        }
+
+        // Photo evidence note
+        if (r.photoUrls?.length > 0) {
+          doc.setFont("helvetica", "italic");
+          doc.setFontSize(7.5);
+          doc.setTextColor(...GREY);
+          doc.text(`📷 ${r.photoUrls.length} photo${r.photoUrls.length > 1 ? "s" : ""} attached (view online in SPRS)`, margin + 3, y2 + 4);
+          y2 += 8;
+        }
+
+        // Separator line
+        doc.setDrawColor(220, 220, 220);
+        doc.setLineWidth(0.3);
+        doc.line(margin, y2 + 2, pageW - margin, y2 + 2);
+
+        // Trick: update doc.lastAutoTable.finalY to keep y2 for next iteration
+        if (!doc.lastAutoTable) doc.lastAutoTable = {};
+        doc.lastAutoTable.finalY = y2 + 4;
+      });
+    }
+
+    // ── Apply footers to all pages ──────────────────────────────────
+    const totalPages = doc.internal.getNumberOfPages();
+    for (let i = 1; i <= totalPages; i++) {
+      doc.setPage(i);
+      drawFooter(i, totalPages);
+    }
+
+    // ── Save ──────────────────────────────────────────────────────────
+    const safeName = project.name.replace(/[^a-zA-Z0-9\s]/g, "").replace(/\s+/g, "_");
+    doc.save(`SPRS_ProjectMaster_${safeName}_${new Date().toISOString().slice(0, 10)}.pdf`);
   };
 
   return (
@@ -1100,67 +1492,126 @@ export default function ReportsPage() {
       {/* Project Export Selection Modal */}
       {showExportModal && (
         <div className="modal-overlay d-print-none" onClick={() => setShowExportModal(false)}>
-          <div className="sp-modal" style={{ maxWidth: 650 }} onClick={(e) => e.stopPropagation()}>
+          <div className="sp-modal" style={{ maxWidth: 680 }} onClick={(e) => e.stopPropagation()}>
             <div className="sp-modal-title d-flex justify-content-between align-items-center mb-0">
-              <span style={{ fontSize: '1.2rem' }}>Export Project Master Report</span>
+              <span style={{ fontSize: '1.2rem', display: 'flex', alignItems: 'center', gap: 8 }}>
+                <Download size={20} color="var(--accent)" /> Export Project Master Report
+              </span>
               <button className="btn btn-ghost btn-sm p-1" onClick={() => setShowExportModal(false)}>
                 <X size={18} />
               </button>
             </div>
-            <p className="small text-muted mt-2 mb-4">Select a project to export its comprehensive task roadmap and all associated daily reports.</p>
-            
-            <div className="db-project-list" style={{ maxHeight: '400px', overflowY: 'auto' }}>
-              {projects.length === 0 ? <p className="text-muted small text-center">No active projects to export.</p> : null}
-              {projects.map((p) => (
-                <div key={p.id} className="card p-3 mb-2" style={{ cursor: 'pointer', border: expandedExportProject === p.id ? '1px solid var(--accent)' : '1px solid var(--border)' }} onClick={() => setExpandedExportProject(expandedExportProject === p.id ? null : p.id)}>
-                  <div className="d-flex justify-content-between align-items-center">
-                    <div>
-                      <div className="fw-semibold" style={{ color: "var(--text-primary)" }}>{p.name}</div>
-                      <div className="small text-muted">{p.location || "No Location"} • {p.progress}% Progress</div>
-                    </div>
-                    <button className="btn btn-primary btn-sm" onClick={(e) => { e.stopPropagation(); setSelectedExportProject(p); setTimeout(() => window.print(), 200); }}>
-                      Select & Export
-                    </button>
-                  </div>
+            <p className="small text-muted mt-2 mb-4">Select a project to generate a professional PDF report with task roadmap and all daily reports.</p>
 
-                  {expandedExportProject === p.id && (
-                    <div className="mt-3 pt-3" style={{ borderTop: "1px dashed var(--border)", cursor: 'default' }} onClick={(e) => e.stopPropagation()}>
-                      <h6 className="mb-2" style={{ color: "var(--text-primary)", fontSize: "0.85rem" }}>Task List:</h6>
-                      {tasks.filter(t => t.projectId === p.id).length === 0 ? (
-                        <p className="small text-muted mb-0">No tasks currently appended to this project.</p>
-                      ) : (
-                        <div className="table-responsive">
-                          <table className="table table-sm" style={{ fontSize: "0.75rem" }}>
-                            <thead>
-                              <tr>
-                                <th>Task Title</th>
-                                <th>Assigned To</th>
-                                <th>Status</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {tasks.filter(t => t.projectId === p.id).map(t => (
-                                <tr key={t.id}>
-                                  <td>{t.title}</td>
-                                  <td>{t.assignedTo || "—"}</td>
-                                  <td>{t.status}</td>
-                                </tr>
-                              ))}
-                            </tbody>
-                          </table>
+            <div className="db-project-list" style={{ maxHeight: '420px', overflowY: 'auto' }}>
+              {projects.length === 0 ? <p className="text-muted small text-center">No active projects to export.</p> : null}
+              {projects.map((p) => {
+                const projTasks = tasks.filter(t => t.projectId === p.id);
+                const projReports = reports.filter(r => r.projectId === p.id);
+                return (
+                  <div
+                    key={p.id}
+                    className="card p-3 mb-2"
+                    style={{
+                      cursor: 'pointer',
+                      border: expandedExportProject === p.id ? '1px solid var(--accent)' : '1px solid var(--border)',
+                      transition: 'border-color 0.15s',
+                    }}
+                    onClick={() => setExpandedExportProject(expandedExportProject === p.id ? null : p.id)}
+                  >
+                    <div className="d-flex justify-content-between align-items-center">
+                      <div>
+                        <div className="fw-semibold" style={{ color: 'var(--text-primary)', fontSize: '0.95rem' }}>{p.name}</div>
+                        <div className="small text-muted" style={{ marginTop: 2 }}>
+                          {p.location || 'No Location'} &nbsp;·&nbsp; {p.progress || 0}% Progress &nbsp;·&nbsp;
+                          <span style={{ color: 'var(--accent)' }}>{projTasks.length} task{projTasks.length !== 1 ? 's' : ''}</span>
+                          &nbsp;·&nbsp;
+                          <span style={{ color: 'var(--text-secondary)' }}>{projReports.length} report{projReports.length !== 1 ? 's' : ''}</span>
                         </div>
-                      )}
+                      </div>
+                      <button
+                        className="visily-coral-btn"
+                        style={{ padding: '7px 16px', fontSize: '0.83rem', gap: 6, display: 'flex', alignItems: 'center' }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleExportProjectPDF(p);
+                        }}
+                      >
+                        <Download size={14} /> Export PDF
+                      </button>
                     </div>
-                  )}
-                </div>
-              ))}
+
+                    {expandedExportProject === p.id && (
+                      <div
+                        className="mt-3 pt-3"
+                        style={{ borderTop: '1px dashed var(--border)', cursor: 'default' }}
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', marginBottom: 12 }}>
+                          <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                            <strong style={{ color: 'var(--text-primary)' }}>Status:</strong> {p.status || 'Active'}
+                          </div>
+                          <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                            <strong style={{ color: 'var(--text-primary)' }}>Priority:</strong> {p.priority || 'Medium'}
+                          </div>
+                          {p.startDate && <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                            <strong style={{ color: 'var(--text-primary)' }}>Start:</strong> {p.startDate}
+                          </div>}
+                          {p.endDate && <div style={{ fontSize: '0.78rem', color: 'var(--text-secondary)' }}>
+                            <strong style={{ color: 'var(--text-primary)' }}>End:</strong> {p.endDate}
+                          </div>}
+                        </div>
+                        <h6 className="mb-2" style={{ color: 'var(--text-primary)', fontSize: '0.82rem', fontWeight: 700 }}>Task Preview:</h6>
+                        {projTasks.length === 0 ? (
+                          <p className="small text-muted mb-0">No tasks assigned to this project.</p>
+                        ) : (
+                          <div className="table-responsive">
+                            <table className="table table-sm" style={{ fontSize: '0.75rem' }}>
+                              <thead>
+                                <tr>
+                                  <th>Task Title</th>
+                                  <th>Assigned To</th>
+                                  <th>Due Date</th>
+                                  <th>Status</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                {projTasks.slice(0, 5).map(t => (
+                                  <tr key={t.id}>
+                                    <td>{t.title}</td>
+                                    <td>{t.assignedTo || '—'}</td>
+                                    <td>{t.dueDate || '—'}</td>
+                                    <td style={{
+                                      color: t.status === 'done' ? 'var(--success)' : t.status === 'inprogress' ? 'var(--info)' : 'var(--text-secondary)',
+                                      fontWeight: 600, textTransform: 'capitalize'
+                                    }}>
+                                      {t.status === 'inprogress' ? 'In Progress' : t.status === 'todo' ? 'To Do' : 'Done'}
+                                    </td>
+                                  </tr>
+                                ))}
+                                {projTasks.length > 5 && (
+                                  <tr>
+                                    <td colSpan="4" style={{ color: 'var(--text-muted)', fontSize: '0.73rem', fontStyle: 'italic' }}>
+                                      +{projTasks.length - 5} more tasks in the PDF export
+                                    </td>
+                                  </tr>
+                                )}
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </div>
         </div>
       )}
 
-      {/* Invisible Printable Component triggered by window.print() */}
-      {selectedExportProject && (
+      {/* handleExportProjectPDF — jsPDF professional generator (called from modal) */}
+      {false && (
         <div className="printable-reports-export d-none">
           <div style={{ padding: '32px', fontFamily: 'Arial, sans-serif', color: '#111' }}>
 
