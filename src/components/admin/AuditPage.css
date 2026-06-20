@@ -6,6 +6,63 @@
   color: var(--text-secondary); font-size: 0.95rem;
 }
 
+/* ── Page Header ──────────────────────────────── */
+.audit-page-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 1.75rem;
+  flex-wrap: wrap;
+}
+.audit-page-title {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: var(--text-primary);
+  margin: 0 0 2px;
+}
+.audit-page-subtitle {
+  font-size: 0.83rem;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+/* ── Export Full Report Button ────────────────── */
+.audit-export-all-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 18px;
+  border-radius: 10px;
+  background: linear-gradient(135deg, #217346 0%, #1a5c38 100%);
+  color: #ffffff;
+  font-size: 0.875rem;
+  font-weight: 700;
+  border: none;
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(33,115,70,0.35);
+  transition: all 0.18s ease;
+  white-space: nowrap;
+  flex-shrink: 0;
+}
+.audit-export-all-btn:hover:not(:disabled) {
+  background: linear-gradient(135deg, #1d6640 0%, #155130 100%);
+  box-shadow: 0 4px 14px rgba(33,115,70,0.5);
+  transform: translateY(-1px);
+}
+.audit-export-all-btn:active:not(:disabled) { transform: translateY(0); }
+.audit-export-all-btn:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  transform: none;
+}
+.audit-export-all-btn.loading { animation: pulse-green 1.4s ease infinite; }
+@keyframes pulse-green {
+  0%, 100% { box-shadow: 0 2px 8px rgba(33,115,70,0.35); }
+  50%       { box-shadow: 0 4px 18px rgba(33,115,70,0.6); }
+}
+
 /* ── Summary Cards ───────────────────────────── */
 .audit-stat-grid {
   display: grid;
@@ -60,12 +117,16 @@
 }
 .audit-export-btn {
   display: flex; align-items: center; gap: 6px;
-  padding: 5px 12px; border-radius: 8px;
+  padding: 5px 13px; border-radius: 8px;
   border: 1px solid var(--border);
   background: var(--bg-surface); color: var(--text-secondary);
-  font-size: 0.78rem; font-weight: 600; cursor: pointer; transition: all 0.15s;
+  font-size: 0.78rem; font-weight: 600; cursor: pointer; transition: all 0.18s;
 }
-.audit-export-btn:hover { color: var(--text-primary); border-color: var(--accent); }
+.audit-export-btn:hover {
+  color: #217346;
+  border-color: #217346;
+  background: rgba(33,115,70,0.06);
+}
 
 .audit-empty {
   display: flex; align-items: center; gap: 8px; justify-content: center;
