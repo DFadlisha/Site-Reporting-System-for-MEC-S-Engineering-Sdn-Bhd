@@ -356,148 +356,187 @@ export default function ReportsPage() {
     a.click();
   };
 
-  // ── Professional PDF Export ────────────────────────────────────────
+  // ── Professional PDF Export (Corporate Monochrome Style) ──────────
   const handleExportProjectPDF = (project) => {
     const doc = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
     const pageW = doc.internal.pageSize.getWidth();
     const pageH = doc.internal.pageSize.getHeight();
-    const margin = 15;
+    const margin = 20;
     const contentW = pageW - margin * 2;
     const exportDate = new Date().toLocaleDateString("en-MY", { day: "2-digit", month: "long", year: "numeric" });
     const projTasks   = tasks.filter(t => t.projectId === project.id);
     const projReports = reports.filter(r => r.projectId === project.id);
 
-    // ── Colour palette ──
-    const CORAL   = [245, 106, 106];
-    const DARK    = [17,  24,  39];
-    const GREY    = [107, 114, 128];
-    const LIGHTBG = [248, 249, 250];
-    const WHITE   = [255, 255, 255];
-    const GREENB  = [209, 250, 229];
-    const GREENT  = [6,   95,  70];
-    const BLUEB   = [219, 234, 254];
-    const BLUET   = [30,  64,  175];
-    const YELLOWB = [254, 243, 199];
-    const YELLOWT = [146, 64,  14];
+    // ── Professional monochrome palette ──
+    const NAVY      = [18,  36,  71];   // primary dark navy
+    const NAVYMID   = [44,  73, 130];   // mid navy for accents
+    const CHARCOAL  = [50,  50,  55];   // body text
+    const MIDGREY   = [110, 110, 115];  // secondary text / labels
+    const LIGHTGREY = [235, 236, 238];  // table alternate rows / boxes
+    const PALEGREY  = [248, 248, 249];  // info box bg
+    const WHITE     = [255, 255, 255];
+    const BLACK     = [0,   0,   0];
 
-    // Helper: draw footer on every page
-    const drawFooter = (pageNum, totalPages) => {
-      doc.setFontSize(8);
-      doc.setTextColor(...GREY);
-      doc.setFont("helvetica", "normal");
-      doc.text("SPRS — Site Progress Reporting System  |  MEC's Engineering Sdn. Bhd.  |  CONFIDENTIAL", margin, pageH - 8);
-      doc.text(`Page ${pageNum} of ${totalPages}`, pageW - margin, pageH - 8, { align: "right" });
-      doc.setDrawColor(...CORAL);
-      doc.setLineWidth(0.4);
-      doc.line(margin, pageH - 12, pageW - margin, pageH - 12);
+    // Status text helpers — text-only, no fill colours
+    const statusLabel = (s) => {
+      if (s === "approved") return "Approved";
+      if (s === "rejected") return "Rejected";
+      if (s === "pending")  return "Pending";
+      return s ? s.charAt(0).toUpperCase() + s.slice(1) : "—";
+    };
+    const taskStatusLabel = (s) =>
+      s === "inprogress" ? "In Progress" : s === "todo" ? "To Do" : s === "done" ? "Completed" : s || "—";
+
+    // ── Helper: horizontal rule ──
+    const drawRule = (yPos, thickness = 0.3, color = LIGHTGREY) => {
+      doc.setDrawColor(...color);
+      doc.setLineWidth(thickness);
+      doc.line(margin, yPos, pageW - margin, yPos);
     };
 
-    // ── PAGE 1: Cover / Header ──────────────────────────────────────
-    // Top coral header bar
-    doc.setFillColor(...CORAL);
-    doc.rect(0, 0, pageW, 38, "F");
+    // ── Helper: section heading ──
+    const drawSectionHeading = (text, yPos) => {
+      // Left accent bar
+      doc.setFillColor(...NAVYMID);
+      doc.rect(margin, yPos - 4, 1.5, 7, "F");
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9.5);
+      doc.setTextColor(...NAVY);
+      doc.text(text, margin + 4, yPos);
+      drawRule(yPos + 2, 0.2, LIGHTGREY);
+      return yPos + 6;
+    };
 
-    // Company name
+    // ── Helper: footer ──
+    const drawFooter = (pageNum, totalPages) => {
+      drawRule(pageH - 14, 0.4, MIDGREY);
+      doc.setFontSize(7.5);
+      doc.setTextColor(...MIDGREY);
+      doc.setFont("helvetica", "normal");
+      doc.text("MEC'S ENGINEERING SDN. BHD.  |  SPRS Site Progress Reporting System  |  CONFIDENTIAL", margin, pageH - 9);
+      doc.text(`Page ${pageNum} / ${totalPages}`, pageW - margin, pageH - 9, { align: "right" });
+    };
+
+    // ════════════════════════════════════════════════════════════════
+    // PAGE 1 — COVER HEADER
+    // ════════════════════════════════════════════════════════════════
+
+    // Solid navy header band
+    doc.setFillColor(...NAVY);
+    doc.rect(0, 0, pageW, 42, "F");
+
+    // Thin white rule inside header
+    doc.setDrawColor(...WHITE);
+    doc.setLineWidth(0.2);
+    doc.line(margin, 30, pageW - margin, 30);
+
+    // Company name (top-left)
     doc.setFont("helvetica", "bold");
-    doc.setFontSize(9);
-    doc.setTextColor(...WHITE);
-    doc.text("MEC'S ENGINEERING SDN. BHD.", margin, 12);
-
-    // Report type label
-    doc.setFontSize(14);
-    doc.text("PROJECT MASTER REPORT", margin, 23);
-
-    // Exported date (right side)
-    doc.setFont("helvetica", "normal");
     doc.setFontSize(8);
-    doc.text(`Exported: ${exportDate}`, pageW - margin, 12, { align: "right" });
-    doc.text(`Prepared by SPRS`, pageW - margin, 19, { align: "right" });
-
-    // Project name below header
-    doc.setFillColor(...DARK);
-    doc.rect(0, 38, pageW, 18, "F");
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(13);
     doc.setTextColor(...WHITE);
-    doc.text(project.name, margin, 50);
+    doc.text("MEC'S ENGINEERING SDN. BHD.", margin, 13);
 
-    // ── Project Info Box ──
-    let y = 66;
-    doc.setFillColor(...LIGHTBG);
-    doc.roundedRect(margin, y, contentW, 32, 3, 3, "F");
-    doc.setDrawColor(220, 220, 220);
+    // Document type (large)
+    doc.setFontSize(16);
+    doc.setFont("helvetica", "bold");
+    doc.text("PROJECT MASTER REPORT", margin, 25);
+
+    // Export metadata (top-right, small)
+    doc.setFont("helvetica", "normal");
+    doc.setFontSize(7.5);
+    doc.setTextColor(200, 210, 230);  // pale blue-grey on dark
+    doc.text(`Exported: ${exportDate}`, pageW - margin, 13, { align: "right" });
+    doc.text("Prepared by SPRS", pageW - margin, 20, { align: "right" });
+
+    // Project name sub-band (mid-navy)
+    doc.setFillColor(...NAVYMID);
+    doc.rect(0, 42, pageW, 14, "F");
+    doc.setFont("helvetica", "bold");
+    doc.setFontSize(11);
+    doc.setTextColor(...WHITE);
+    // Truncate project name if too long
+    const projNameTrunc = doc.splitTextToSize(project.name, contentW)[0];
+    doc.text(projNameTrunc, margin, 51);
+
+    // ── Project Info Grid ──
+    let y = 64;
+    doc.setFillColor(...PALEGREY);
+    doc.rect(margin, y, contentW, 30, "F");
+    doc.setDrawColor(...LIGHTGREY);
     doc.setLineWidth(0.3);
-    doc.roundedRect(margin, y, contentW, 32, 3, 3, "S");
+    doc.rect(margin, y, contentW, 30, "S");
+
+    // Vertical dividers between columns
+    const colW3 = contentW / 3;
+    doc.setDrawColor(...LIGHTGREY);
+    doc.setLineWidth(0.2);
+    doc.line(margin + colW3, y + 4, margin + colW3, y + 26);
+    doc.line(margin + colW3 * 2, y + 4, margin + colW3 * 2, y + 26);
 
     const infoItems = [
-      ["Location",  project.location  || "N/A"],
-      ["Status",    project.status    || "Active"],
-      ["Priority",  project.priority  || "Medium"],
-      ["Progress",  `${project.progress || 0}%`],
+      ["Location",   project.location  || "N/A"],
+      ["Status",     project.status    || "Active"],
+      ["Priority",   project.priority  || "Medium"],
+      ["Progress",   `${project.progress || 0}%`],
       ["Start Date", project.startDate || "N/A"],
       ["End Date",   project.endDate   || "N/A"],
     ];
-    const colW = contentW / 3;
     infoItems.forEach(([label, value], i) => {
       const col = i % 3;
       const row = Math.floor(i / 3);
-      const ix = margin + col * colW + 6;
-      const iy = y + 10 + row * 14;
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(7.5);
-      doc.setTextColor(...GREY);
-      doc.text(label.toUpperCase(), ix, iy);
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(9.5);
-      doc.setTextColor(...DARK);
-      doc.text(String(value), ix, iy + 6);
-    });
-
-    // ── Summary chips ──
-    y = 105;
-    const chips = [
-      { label: "Total Tasks",   value: projTasks.length,   bg: BLUEB,   text: BLUET },
-      { label: "Daily Reports", value: projReports.length, bg: GREENB,  text: GREENT },
-      { label: "Approved",      value: projReports.filter(r => r.status === "approved").length, bg: GREENB, text: GREENT },
-      { label: "Pending",       value: projReports.filter(r => r.status === "pending").length,  bg: YELLOWB, text: YELLOWT },
-    ];
-    const chipW = (contentW - 12) / chips.length;
-    chips.forEach(({ label, value, bg, text }, i) => {
-      const cx = margin + i * (chipW + 4);
-      doc.setFillColor(...bg);
-      doc.roundedRect(cx, y, chipW, 20, 3, 3, "F");
-      doc.setFont("helvetica", "bold");
-      doc.setFontSize(16);
-      doc.setTextColor(...text);
-      doc.text(String(value), cx + chipW / 2, y + 13, { align: "center" });
+      const ix = margin + col * colW3 + 5;
+      const iy = y + 9 + row * 13;
       doc.setFont("helvetica", "normal");
       doc.setFontSize(7);
-      doc.setTextColor(...text);
-      doc.text(label, cx + chipW / 2, y + 19, { align: "center" });
+      doc.setTextColor(...MIDGREY);
+      doc.text(label.toUpperCase(), ix, iy);
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(9);
+      doc.setTextColor(...CHARCOAL);
+      doc.text(String(value), ix, iy + 5.5);
     });
 
-    // ── Section 1: Task Assignments ──────────────────────────────────
-    y = 133;
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(11);
-    doc.setTextColor(...DARK);
-    doc.text("SECTION 1 — TASK ASSIGNMENTS & SITE IN-CHARGE", margin, y);
-    doc.setDrawColor(...CORAL);
-    doc.setLineWidth(0.5);
-    doc.line(margin, y + 2, pageW - margin, y + 2);
-    y += 6;
+    // ── Summary Statistics Row ──
+    y = 100;
+    const statItems = [
+      { label: "Total Tasks",    value: projTasks.length },
+      { label: "Daily Reports",  value: projReports.length },
+      { label: "Approved",       value: projReports.filter(r => r.status === "approved").length },
+      { label: "Pending",        value: projReports.filter(r => r.status === "pending").length },
+    ];
+    const statW = (contentW - (statItems.length - 1) * 3) / statItems.length;
+    statItems.forEach(({ label, value }, i) => {
+      const sx = margin + i * (statW + 3);
+      // Box
+      doc.setFillColor(...WHITE);
+      doc.setDrawColor(...LIGHTGREY);
+      doc.setLineWidth(0.4);
+      doc.rect(sx, y, statW, 20, "FD");
+      // Top accent line
+      doc.setFillColor(...NAVY);
+      doc.rect(sx, y, statW, 1.2, "F");
+      // Value
+      doc.setFont("helvetica", "bold");
+      doc.setFontSize(17);
+      doc.setTextColor(...NAVY);
+      doc.text(String(value), sx + statW / 2, y + 13, { align: "center" });
+      // Label
+      doc.setFont("helvetica", "normal");
+      doc.setFontSize(6.5);
+      doc.setTextColor(...MIDGREY);
+      doc.text(label.toUpperCase(), sx + statW / 2, y + 18.5, { align: "center" });
+    });
 
-    const taskStatusLabel = (s) =>
-      s === "inprogress" ? "In Progress" : s === "todo" ? "To Do" : s === "done" ? "Done" : s || "—";
-    const taskStatusColor = (s) =>
-      s === "done" ? [6, 95, 70] : s === "inprogress" ? [30, 64, 175] : [107, 114, 128];
-    const taskStatusBg = (s) =>
-      s === "done" ? [209, 250, 229] : s === "inprogress" ? [219, 234, 254] : [243, 244, 246];
+    // ════════════════════════════════════════════════════════════════
+    // SECTION 1 — TASK ASSIGNMENTS
+    // ════════════════════════════════════════════════════════════════
+    y = 128;
+    y = drawSectionHeading("SECTION 1  —  TASK ASSIGNMENTS & SITE IN-CHARGE", y);
 
     autoTable(doc, {
       startY: y,
       margin: { left: margin, right: margin },
-      head: [["#", "Task Title", "Site In-Charge (Supervisor)", "Site / Area", "Due Date", "Priority", "Status"]],
+      head: [["#", "Task Title", "Site In-Charge", "Site / Area", "Due Date", "Priority", "Status"]],
       body: projTasks.length > 0
         ? projTasks.map((t, i) => [
             i + 1,
@@ -510,65 +549,64 @@ export default function ReportsPage() {
           ])
         : [["", "No tasks assigned to this project.", "", "", "", "", ""]],
       headStyles: {
-        fillColor: [31, 78, 121],
+        fillColor: NAVY,
         textColor: WHITE,
         fontStyle: "bold",
-        fontSize: 8,
-        cellPadding: 4,
+        fontSize: 7.5,
+        cellPadding: 3.5,
       },
-      bodyStyles: { fontSize: 8.5, cellPadding: 4 },
-      alternateRowStyles: { fillColor: [242, 248, 255] },
+      bodyStyles: {
+        fontSize: 8,
+        cellPadding: 3.5,
+        textColor: CHARCOAL,
+        lineColor: LIGHTGREY,
+        lineWidth: 0.2,
+      },
+      alternateRowStyles: { fillColor: PALEGREY },
       columnStyles: {
-        0: { halign: "center", cellWidth: 8 },
-        1: { cellWidth: 48, fontStyle: "bold" },
+        0: { halign: "center", cellWidth: 7 },
+        1: { cellWidth: 45, fontStyle: "bold" },
         2: { cellWidth: 38 },
-        3: { cellWidth: 28 },
-        4: { cellWidth: 24, halign: "center" },
-        5: { cellWidth: 22, halign: "center" },
-        6: { cellWidth: 26, halign: "center" },
+        3: { cellWidth: 26 },
+        4: { cellWidth: 22, halign: "center" },
+        5: { cellWidth: 20, halign: "center" },
+        6: { cellWidth: 24, halign: "center" },
       },
       didParseCell: (data) => {
+        // Status column — text colour only, no cell fill
         if (data.section === "body" && data.column.index === 6 && projTasks[data.row.index]) {
-          const status = projTasks[data.row.index]?.status;
-          data.cell.styles.fillColor = taskStatusBg(status);
-          data.cell.styles.textColor = taskStatusColor(status);
+          const s = projTasks[data.row.index]?.status;
+          data.cell.styles.textColor = s === "done" ? [30, 100, 50] : s === "inprogress" ? NAVYMID : MIDGREY;
           data.cell.styles.fontStyle = "bold";
         }
+        // Priority column — text colour only
         if (data.section === "body" && data.column.index === 5 && projTasks[data.row.index]) {
           const p = (projTasks[data.row.index]?.priority || "medium").toLowerCase();
-          data.cell.styles.textColor = p === "high" ? [185, 28, 28] : p === "low" ? [21, 128, 61] : [30, 64, 175];
+          data.cell.styles.textColor = p === "high" ? [160, 30, 30] : p === "low" ? [40, 110, 60] : CHARCOAL;
           data.cell.styles.fontStyle = "bold";
         }
-      },
-      didDrawPage: (data) => {
-        // footer will be applied at end
       },
     });
 
-    // ── Section 2: Daily Reports ──────────────────────────────────────
-    let finalY = (doc.lastAutoTable?.finalY || y) + 10;
+    // ════════════════════════════════════════════════════════════════
+    // SECTION 2 — DAILY PROGRESS REPORTS
+    // ════════════════════════════════════════════════════════════════
+    let finalY = (doc.lastAutoTable?.finalY || y) + 12;
 
-    // Check if need new page
     if (finalY > pageH - 50) {
       doc.addPage();
       finalY = margin + 10;
     }
 
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(11);
-    doc.setTextColor(...DARK);
-    doc.text("SECTION 2 — DAILY PROGRESS REPORTS & EVIDENCE", margin, finalY);
-    doc.setDrawColor(...CORAL);
-    doc.setLineWidth(0.5);
-    doc.line(margin, finalY + 2, pageW - margin, finalY + 2);
-    finalY += 8;
+    finalY = drawSectionHeading("SECTION 2  —  DAILY PROGRESS REPORTS & EVIDENCE", finalY);
 
     if (projReports.length === 0) {
       doc.setFont("helvetica", "italic");
-      doc.setFontSize(9);
-      doc.setTextColor(...GREY);
-      doc.text("No daily reports filed for this project.", margin, finalY);
+      doc.setFontSize(8.5);
+      doc.setTextColor(...MIDGREY);
+      doc.text("No daily reports filed for this project.", margin, finalY + 4);
     } else {
+      // Summary table
       autoTable(doc, {
         startY: finalY,
         margin: { left: margin, right: margin },
@@ -580,157 +618,172 @@ export default function ReportsPage() {
           r.submittedBy || "—",
           r.weather || "—",
           r.workforce ? `${r.workforce} pax` : "—",
-          r.status ? r.status.charAt(0).toUpperCase() + r.status.slice(1) : "—",
+          statusLabel(r.status),
         ]),
         headStyles: {
-          fillColor: [31, 78, 121],
+          fillColor: NAVY,
           textColor: WHITE,
           fontStyle: "bold",
-          fontSize: 8,
-          cellPadding: 4,
+          fontSize: 7.5,
+          cellPadding: 3.5,
         },
-        bodyStyles: { fontSize: 8.5, cellPadding: 4 },
-        alternateRowStyles: { fillColor: [248, 250, 252] },
+        bodyStyles: {
+          fontSize: 8,
+          cellPadding: 3.5,
+          textColor: CHARCOAL,
+          lineColor: LIGHTGREY,
+          lineWidth: 0.2,
+        },
+        alternateRowStyles: { fillColor: PALEGREY },
         columnStyles: {
-          0: { halign: "center", cellWidth: 8 },
-          1: { cellWidth: 48, fontStyle: "bold" },
+          0: { halign: "center", cellWidth: 7 },
+          1: { cellWidth: 45, fontStyle: "bold" },
           2: { cellWidth: 24, halign: "center" },
           3: { cellWidth: 36 },
-          4: { cellWidth: 22, halign: "center" },
-          5: { cellWidth: 22, halign: "center" },
+          4: { cellWidth: 20, halign: "center" },
+          5: { cellWidth: 20, halign: "center" },
           6: { cellWidth: 24, halign: "center" },
         },
         didParseCell: (data) => {
           if (data.section === "body" && data.column.index === 6 && projReports[data.row.index]) {
             const s = projReports[data.row.index]?.status;
-            data.cell.styles.fillColor  = s === "approved" ? GREENB  : s === "rejected" ? [254, 226, 226] : YELLOWB;
-            data.cell.styles.textColor  = s === "approved" ? GREENT  : s === "rejected" ? [153, 27, 27]  : YELLOWT;
-            data.cell.styles.fontStyle  = "bold";
+            data.cell.styles.textColor = s === "approved" ? [30, 100, 50] : s === "rejected" ? [160, 30, 30] : [120, 90, 0];
+            data.cell.styles.fontStyle = "bold";
           }
         },
       });
 
-      // Detailed report entries — one block per report
+      // Detailed per-report blocks
       projReports.forEach((r, idx) => {
-        let y2 = (doc.lastAutoTable?.finalY || finalY) + (idx === 0 ? 8 : 4);
+        let y2 = (doc.lastAutoTable?.finalY || finalY) + (idx === 0 ? 10 : 5);
 
-        // Check space
         if (y2 > pageH - 55) {
           doc.addPage();
-          y2 = margin + 6;
+          y2 = margin + 8;
         }
 
-        // Report header bar
-        doc.setFillColor(...DARK);
-        doc.rect(margin, y2, contentW, 9, "F");
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(8.5);
-        doc.setTextColor(...WHITE);
-        doc.text(`Report #${idx + 1}: ${r.title || "Untitled"}  |  Submitted by: ${r.submittedBy || "—"}`, margin + 3, y2 + 6);
-        // Status badge (right)
-        const statusText = (r.status || "pending").toUpperCase();
-        const statusBgClr = r.status === "approved" ? GREENB : r.status === "rejected" ? [254, 226, 226] : YELLOWB;
-        const statusTxtClr = r.status === "approved" ? GREENT : r.status === "rejected" ? [153, 27, 27] : YELLOWT;
-        const statusW = 24;
-        doc.setFillColor(...statusBgClr);
-        doc.rect(pageW - margin - statusW, y2 + 1, statusW, 7, "F");
-        doc.setFont("helvetica", "bold");
-        doc.setFontSize(6.5);
-        doc.setTextColor(...statusTxtClr);
-        doc.text(statusText, pageW - margin - statusW / 2, y2 + 6, { align: "center" });
-
-        y2 += 11;
-
-        // Meta row
-        doc.setFillColor(248, 249, 250);
+        // ── Report block header (slim navy bar) ──
+        doc.setFillColor(...NAVY);
         doc.rect(margin, y2, contentW, 8, "F");
+        doc.setFont("helvetica", "bold");
+        doc.setFontSize(8);
+        doc.setTextColor(...WHITE);
+        const rLabel = `Report ${idx + 1}  —  ${r.title || "Untitled"}  |  ${r.submittedBy || "—"}`;
+        doc.text(rLabel, margin + 3, y2 + 5.5);
+
+        // Status text (right, same bar)
+        const sTxt = statusLabel(r.status).toUpperCase();
         doc.setFont("helvetica", "normal");
-        doc.setFontSize(7.5);
-        doc.setTextColor(...GREY);
+        doc.setFontSize(7);
+        doc.setTextColor(200, 210, 230);
+        doc.text(sTxt, pageW - margin - 3, y2 + 5.5, { align: "right" });
+
+        y2 += 10;
+
+        // ── Metadata strip (light grey) ──
+        doc.setFillColor(...LIGHTGREY);
+        doc.rect(margin, y2, contentW, 7, "F");
         const metaParts = [
           `Date: ${r.date || "—"}`,
           `Weather: ${r.weather || "—"}`,
           `Workforce: ${r.workforce ? r.workforce + " pax" : "—"}`,
-          r.equipment ? `Equipment: ${r.equipment}` : null,
+          r.equipment ? `Equip: ${r.equipment}` : null,
           r.materials ? `Materials: ${r.materials}` : null,
-          r.gpsLat && r.gpsLng ? `GPS: ${r.gpsLat}, ${r.gpsLng}` : null,
         ].filter(Boolean);
-        doc.text(metaParts.join("   |   "), margin + 3, y2 + 5.5);
-        y2 += 10;
+        doc.setFont("helvetica", "normal");
+        doc.setFontSize(7);
+        doc.setTextColor(...MIDGREY);
+        const metaStr = metaParts.join("   ·   ");
+        const metaTrunc = doc.splitTextToSize(metaStr, contentW - 6)[0];
+        doc.text(metaTrunc, margin + 3, y2 + 4.5);
+        y2 += 9;
 
-        // Description
+        // ── Progress Description ──
         if (r.description) {
+          const lines = doc.splitTextToSize(r.description, contentW - 8);
+          const blockH = Math.min(lines.length * 4.5 + 10, 44);
+          doc.setFillColor(...WHITE);
+          doc.setDrawColor(...LIGHTGREY);
+          doc.setLineWidth(0.2);
+          doc.rect(margin, y2, contentW, blockH, "FD");
+          // Left accent bar
+          doc.setFillColor(...NAVYMID);
+          doc.rect(margin, y2, 1.2, blockH, "F");
           doc.setFont("helvetica", "bold");
-          doc.setFontSize(8);
-          doc.setTextColor(...DARK);
-          doc.text("Progress Description:", margin + 2, y2 + 4);
-          doc.setDrawColor(...CORAL);
-          doc.setLineWidth(0.8);
-          doc.line(margin, y2 + 1, margin, y2 + 4 + 14);
-          const lines = doc.splitTextToSize(r.description, contentW - 14);
-          const blockH = Math.min(lines.length * 4.5 + 8, 40);
-          doc.setFillColor(255, 250, 250);
-          doc.rect(margin + 2, y2, contentW - 2, blockH, "F");
+          doc.setFontSize(7);
+          doc.setTextColor(...MIDGREY);
+          doc.text("PROGRESS DESCRIPTION", margin + 4, y2 + 4.5);
           doc.setFont("helvetica", "normal");
           doc.setFontSize(8);
-          doc.setTextColor(60, 60, 60);
-          doc.text(lines.slice(0, 8), margin + 5, y2 + 8);
+          doc.setTextColor(...CHARCOAL);
+          doc.text(lines.slice(0, 8), margin + 4, y2 + 9);
           y2 += blockH + 3;
-          // guard page break
-          if (y2 > pageH - 40) { doc.addPage(); y2 = margin + 6; }
+          if (y2 > pageH - 40) { doc.addPage(); y2 = margin + 8; }
         }
 
-        // Issues
+        // ── Issues ──
         if (r.issues) {
-          const issueLines = doc.splitTextToSize(`Issues/Problems: ${r.issues}`, contentW - 10);
-          const issueH = Math.min(issueLines.length * 4.5 + 6, 28);
-          doc.setFillColor(255, 248, 240);
-          doc.rect(margin, y2, contentW, issueH, "F");
-          doc.setDrawColor(245, 158, 11);
-          doc.setLineWidth(0.8);
-          doc.line(margin, y2, margin, y2 + issueH);
+          const issueLines = doc.splitTextToSize(r.issues, contentW - 8);
+          const issueH = Math.min(issueLines.length * 4.5 + 10, 30);
+          doc.setFillColor(...PALEGREY);
+          doc.setDrawColor(...LIGHTGREY);
+          doc.setLineWidth(0.2);
+          doc.rect(margin, y2, contentW, issueH, "FD");
+          // Darker left accent
+          doc.setFillColor(...MIDGREY);
+          doc.rect(margin, y2, 1.2, issueH, "F");
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(7);
+          doc.setTextColor(...MIDGREY);
+          doc.text("ISSUES / PROBLEMS", margin + 4, y2 + 4.5);
           doc.setFont("helvetica", "normal");
-          doc.setFontSize(7.5);
-          doc.setTextColor(100, 60, 10);
-          doc.text(issueLines.slice(0, 5), margin + 3, y2 + 5);
+          doc.setFontSize(8);
+          doc.setTextColor(...CHARCOAL);
+          doc.text(issueLines.slice(0, 5), margin + 4, y2 + 9);
           y2 += issueH + 3;
-          if (y2 > pageH - 40) { doc.addPage(); y2 = margin + 6; }
+          if (y2 > pageH - 40) { doc.addPage(); y2 = margin + 8; }
         }
 
-        // Consultant feedback
+        // ── Consultant Feedback ──
         if (r.reviewComment) {
-          const fbLines = doc.splitTextToSize(`Consultant Feedback: ${r.reviewComment}${r.reviewedBy ? ` — ${r.reviewedBy}` : ""}`, contentW - 10);
-          const fbH = Math.min(fbLines.length * 4.5 + 6, 24);
-          doc.setFillColor(240, 247, 255);
-          doc.rect(margin, y2, contentW, fbH, "F");
-          doc.setDrawColor(59, 130, 246);
-          doc.setLineWidth(0.8);
-          doc.line(margin, y2, margin, y2 + fbH);
+          const fbLines = doc.splitTextToSize(r.reviewComment, contentW - 10);
+          const fbH = Math.min(fbLines.length * 4.5 + 10, 28);
+          doc.setFillColor(...WHITE);
+          doc.setDrawColor(...LIGHTGREY);
+          doc.setLineWidth(0.2);
+          doc.rect(margin, y2, contentW, fbH, "FD");
+          doc.setFillColor(...NAVYMID);
+          doc.rect(margin, y2, 1.2, fbH, "F");
+          doc.setFont("helvetica", "bold");
+          doc.setFontSize(7);
+          doc.setTextColor(...MIDGREY);
+          const reviewer = r.reviewedBy ? `  (${r.reviewedBy})` : "";
+          doc.text(`CONSULTANT REVIEW${reviewer}`, margin + 4, y2 + 4.5);
           doc.setFont("helvetica", "normal");
-          doc.setFontSize(7.5);
-          doc.setTextColor(30, 64, 175);
-          doc.text(fbLines.slice(0, 4), margin + 3, y2 + 5);
+          doc.setFontSize(8);
+          doc.setTextColor(...CHARCOAL);
+          doc.text(fbLines.slice(0, 4), margin + 4, y2 + 9);
           y2 += fbH + 3;
-          if (y2 > pageH - 30) { doc.addPage(); y2 = margin + 6; }
+          if (y2 > pageH - 30) { doc.addPage(); y2 = margin + 8; }
         }
 
-        // Photo evidence note
+        // ── Photo note ──
         if (r.photoUrls?.length > 0) {
           doc.setFont("helvetica", "italic");
           doc.setFontSize(7.5);
-          doc.setTextColor(...GREY);
-          doc.text(`📷 ${r.photoUrls.length} photo${r.photoUrls.length > 1 ? "s" : ""} attached (view online in SPRS)`, margin + 3, y2 + 4);
+          doc.setTextColor(...MIDGREY);
+          doc.text(
+            `[${r.photoUrls.length} photo attachment${r.photoUrls.length > 1 ? "s" : ""} — view in SPRS system]`,
+            margin + 3, y2 + 4
+          );
           y2 += 8;
         }
 
-        // Separator line
-        doc.setDrawColor(220, 220, 220);
-        doc.setLineWidth(0.3);
-        doc.line(margin, y2 + 2, pageW - margin, y2 + 2);
+        // Separator
+        drawRule(y2 + 2, 0.25, LIGHTGREY);
 
-        // Trick: update doc.lastAutoTable.finalY to keep y2 for next iteration
         if (!doc.lastAutoTable) doc.lastAutoTable = {};
-        doc.lastAutoTable.finalY = y2 + 4;
+        doc.lastAutoTable.finalY = y2 + 5;
       });
     }
 
@@ -741,7 +794,7 @@ export default function ReportsPage() {
       drawFooter(i, totalPages);
     }
 
-    // ── Save ──────────────────────────────────────────────────────────
+    // ── Save ──
     const safeName = project.name.replace(/[^a-zA-Z0-9\s]/g, "").replace(/\s+/g, "_");
     doc.save(`SPRS_ProjectMaster_${safeName}_${new Date().toISOString().slice(0, 10)}.pdf`);
   };
