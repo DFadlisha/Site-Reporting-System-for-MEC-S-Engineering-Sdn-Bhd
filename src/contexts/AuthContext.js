@@ -2,7 +2,7 @@
 import React, { createContext, useContext, useEffect, useState } from "react";
 import { onAuthStateChanged } from "firebase/auth";
 import { auth } from "../firebase/config";
-import { getUserProfile } from "../firebase/services";
+import { getUserProfile, requestPushPermission } from "../firebase/services";
 
 const AuthContext = createContext(null);
 
@@ -18,6 +18,12 @@ export const AuthProvider = ({ children }) => {
         try {
           const prof = await getUserProfile(firebaseUser.uid);
           setProfile(prof);
+          // Request FCM push permission and save token to Firestore
+          if (prof?.id) {
+            requestPushPermission(prof.id).catch((err) =>
+              console.warn("FCM token request failed:", err)
+            );
+          }
         } catch (error) {
           console.error("Error fetching user profile:", error);
           setProfile(null);

@@ -1,9 +1,11 @@
 // src/App.js
-import React from "react";
+import React, { useEffect } from "react";
 import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
-import { Toaster } from "react-hot-toast";
+import { Toaster, toast } from "react-hot-toast";
 import { AuthProvider } from "./contexts/AuthContext";
 import { ThemeProvider } from "./contexts/ThemeContext";
+import { onMessage } from "firebase/messaging";
+import { messaging } from "./firebase/config";
 import ProtectedRoute from "./components/shared/ProtectedRoute";
 import AppLayout from "./components/shared/AppLayout";
 import AuthPage from "./components/auth/AuthPage";
@@ -17,6 +19,28 @@ import AuditPage from "./components/admin/AuditPage";
 import "./index.css";
 
 export default function App() {
+  // ── Foreground FCM message handler ──────────────────────────────
+  useEffect(() => {
+    if (!messaging) return;
+    const unsub = onMessage(messaging, (payload) => {
+      const title = payload.notification?.title || "New Notification";
+      const body  = payload.notification?.body  || "";
+      toast(
+        (t) => (
+          <div style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
+            <span style={{ fontSize: "1.2rem" }}>🔔</span>
+            <div>
+              <div style={{ fontWeight: 700, fontSize: "0.88rem", marginBottom: 2 }}>{title}</div>
+              {body && <div style={{ fontSize: "0.82rem", opacity: 0.85 }}>{body}</div>}
+            </div>
+          </div>
+        ),
+        { duration: 5000 }
+      );
+    });
+    return unsub;
+  }, []);
+
   return (
     <ThemeProvider>
       <AuthProvider>
